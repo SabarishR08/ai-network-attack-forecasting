@@ -3,11 +3,11 @@
 ![License](https://img.shields.io/badge/license-MIT-green) ![Language](https://img.shields.io/badge/language-Python-informational) ![Docker](https://img.shields.io/badge/docker-ready-2496ed) ![Deploy](https://img.shields.io/badge/deploy-Render-46e3b7)
 
 
-## 📌 Overview
+## Overview
 
 AI-Based Network Attack Forecasting from Network Traffic Data — SIH26153 (NTRO)
 
-## 🏗️ Architecture
+## Architecture
 
 ```text
 Browser / UI
@@ -19,7 +19,7 @@ Flask app
      └──▶ ML models — scikit-learn, XGBoost
 ```
 
-## 🧰 Tech Stack
+## Tech Stack
 
 - **Language:** Python
 - **Backend:** Flask
@@ -28,7 +28,7 @@ Flask app
 - **ML:** scikit-learn, XGBoost
 - **Deployment:** Docker container / Render (render.yaml)
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -76,7 +76,7 @@ python run.py
 docker compose up --build
 ```
 
-## ☁️ Deployment
+## Deployment
 
 Defined in `render.yaml` (web service `netwatch-sih26153-api`) with `autoDeploy` enabled — pushes to the default branch trigger a Render deploy.
 
@@ -86,11 +86,11 @@ Defined in `render.yaml` (web service `netwatch-sih26153-api`) with `autoDeploy`
 ![License](https://img.shields.io/badge/license-MIT-green) ![Language](https://img.shields.io/badge/language-Python-informational) ![Docker](https://img.shields.io/badge/docker-ready-2496ed) ![Deploy](https://img.shields.io/badge/deploy-Render-46e3b7)
 
 
-## 📌 Overview
+## Overview
 
 AI-Based Network Attack Forecasting from Network Traffic Data — SIH26153 (NTRO)
 
-## 🏗️ Architecture
+## Architecture
 
 ```text
 Browser / UI
@@ -102,7 +102,7 @@ Flask app
      └──▶ ML models — scikit-learn, XGBoost
 ```
 
-## 🧰 Tech Stack
+## Tech Stack
 
 - **Language:** Python
 - **Backend:** Flask
@@ -111,7 +111,7 @@ Flask app
 - **ML:** scikit-learn, XGBoost
 - **Deployment:** Docker container / Render (render.yaml)
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -159,7 +159,7 @@ python run.py
 docker compose up --build
 ```
 
-## ☁️ Deployment
+## Deployment
 
 Defined in `render.yaml` (web service `netwatch-sih26153-api`) with `autoDeploy` enabled — pushes to the default branch trigger a Render deploy.
 
@@ -223,11 +223,11 @@ python run.py --monitor        # Windows (run as admin)
 
 ---
 
-## 📖 Full Setup Guide
+## Full Setup Guide
 
 **For detailed step-by-step instructions (including Npcap, 3-terminal testing, troubleshooting), see:**
 
-### 👉 [SETUP.md](SETUP.md)
+### [SETUP.md](SETUP.md)
 
 ---
 
@@ -306,12 +306,12 @@ See [SETUP.md](SETUP.md#6-using-the-port-scanner-test-tool) for full instruction
 
 ---
 
-## 📄 License
+## License
 
 [MIT](LICENSE) — © 2026 Sabarish R.
 
 ---
 
-## 📄 License
+## License
 
 [MIT](LICENSE) — © 2026 Sabarish R.
