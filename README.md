@@ -1,4 +1,4 @@
-# SIH26153 AI Network Attack Forecasting
+# AI Network Attack Forecasting
 
 ![License](https://img.shields.io/badge/license-MIT-green) ![Language](https://img.shields.io/badge/language-Python-informational) ![Docker](https://img.shields.io/badge/docker-ready-2496ed) ![Deploy](https://img.shields.io/badge/deploy-Render-46e3b7)
 
@@ -38,8 +38,8 @@ Flask app
 ### 1. Clone
 
 ```bash
-git clone https://github.com/SabarishR08/SIH26153-AI-Network-Attack-Forecasting.git
-cd SIH26153-AI-Network-Attack-Forecasting
+git clone https://github.com/SabarishR08/ai-network-attack-forecasting.git
+cd ai-network-attack-forecasting
 ```
 
 ### 2. Install dependencies
@@ -121,8 +121,8 @@ Flask app
 ### 1. Clone
 
 ```bash
-git clone https://github.com/SabarishR08/SIH26153-AI-Network-Attack-Forecasting.git
-cd SIH26153-AI-Network-Attack-Forecasting
+git clone https://github.com/SabarishR08/ai-network-attack-forecasting.git
+cd ai-network-attack-forecasting
 ```
 
 ### 2. Install dependencies
@@ -195,8 +195,8 @@ An integrated threat detection and forecasting system that:
 ### Setup
 
 ```bash
-git clone --recurse-submodules https://github.com/SabarishR08/SIH26153-AI-Network-Attack-Forecasting.git
-cd SIH26153-AI-Network-Attack-Forecasting
+git clone --recurse-submodules https://github.com/SabarishR08/ai-network-attack-forecasting.git
+cd ai-network-attack-forecasting
 
 python -m venv venv
 venv\Scripts\activate          # Windows
