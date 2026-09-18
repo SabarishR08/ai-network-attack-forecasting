@@ -15,7 +15,9 @@ import os
 import random
 import sys
 import time
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent

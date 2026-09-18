@@ -6,7 +6,9 @@ import json
 import os
 import sys
 import time
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, render_template, request, stream_with_context

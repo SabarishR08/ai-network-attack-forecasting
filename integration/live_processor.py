@@ -19,7 +19,9 @@ import sys
 import threading
 import time
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+UTC = timezone.utc
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 

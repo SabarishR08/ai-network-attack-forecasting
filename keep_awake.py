@@ -18,7 +18,9 @@ import sys
 import time
 import urllib.request
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc
 
 
 def ping(url: str, timeout: int = 30) -> tuple[bool, dict]:
