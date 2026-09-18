@@ -10,7 +10,7 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping API
+      - name: Ping API (with retries for cold starts)
         run: |
           # Set your Render URL here after deployment
           RENDER_URL="${{ secrets.RENDER_URL }}"
@@ -19,10 +19,23 @@ jobs:
           fi
 
           echo "Pinging $RENDER_URL/api/keepalive ..."
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$RENDER_URL/api/keepalive")
+          # Render free-tier cold starts can take 60s+; each attempt gets a
+          # generous timeout and we retry before reporting a warning.
+          SUCCESS=false
+          for attempt in 1 2 3; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 "$RENDER_URL/api/keepalive" || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Service is alive (HTTP $HTTP_CODE)"
+              SUCCESS=true
+              break
+            fi
+            echo "⚠️ Attempt $attempt: HTTP $HTTP_CODE"
+            [ "$attempt" -lt 3 ] && sleep 30
+          done
 
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Service is alive (HTTP $HTTP_CODE)"
-          else
-            echo "⚠️ Service returned HTTP $HTTP_CODE"
+          if [ "$SUCCESS" = "true" ]; then
+            exit 0
           fi
+          # Warn instead of failing: the next scheduled ping in 5 minutes
+          # retries, and repeated warnings indicate a real outage.
+          echo "⚠️ Service unreachable after 3 attempts (last HTTP $HTTP_CODE). Render may be cold-starting or down — next scheduled ping will retry."
