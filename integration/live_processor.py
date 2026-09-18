@@ -14,7 +14,6 @@ Note: On Windows, install Npcap first: https://npcap.com/#download
 import argparse
 import json
 import logging
-import os
 import sys
 import threading
 import time
@@ -37,12 +36,12 @@ for p in [
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from integration.config import DATA_DIR, PACKETS_FILE, ANOMALIES_FILE, FEATURES_FILE
-from integration.packet_capture import PacketCapturer, get_local_ip
+from integration.config import ANOMALIES_FILE, PACKETS_FILE
 from integration.detection_engine import DetectionEngine
-
+from integration.packet_capture import PacketCapturer, get_local_ip
 
 # ── Rolling Buffer for Real-Time Detection ─────────────────
+
 
 class RollingPacketBuffer:
     """
@@ -88,9 +87,10 @@ class RollingPacketBuffer:
         cutoff = datetime.now(UTC) - timedelta(seconds=self.window_seconds)
         pkts = self._buffer[key]
         self._buffer[key] = [
-            p for p in pkts
-            if self._parse_ts(p.get("timestamp", "")) and
-               self._parse_ts(p.get("timestamp", "")) >= cutoff
+            p
+            for p in pkts
+            if self._parse_ts(p.get("timestamp", ""))
+            and self._parse_ts(p.get("timestamp", "")) >= cutoff
         ]
 
     def _parse_ts(self, ts_str: str) -> Optional[datetime]:
@@ -107,6 +107,7 @@ class RollingPacketBuffer:
 
 # ── Real-Time Anomaly Detector ─────────────────────────────
 
+
 class LiveAnomalyDetector:
     """
     Detects anomalies from the rolling packet buffer.
@@ -116,19 +117,25 @@ class LiveAnomalyDetector:
     """
 
     # Detection thresholds
-    PORT_SCAN_UNIQUE_PORTS = 5     # Unique ports in window → scan
-    PORT_SCAN_WINDOW = 10          # Seconds
+    PORT_SCAN_UNIQUE_PORTS = 5  # Unique ports in window → scan
+    PORT_SCAN_WINDOW = 10  # Seconds
 
-    BRUTE_FORCE_THRESHOLD = 5      # Failed attempts → brute force
-    BRUTE_FORCE_WINDOW = 30        # Seconds
+    BRUTE_FORCE_THRESHOLD = 5  # Failed attempts → brute force
+    BRUTE_FORCE_WINDOW = 30  # Seconds
 
     CONNECTION_CYCLING_THRESHOLD = 20  # Connections in window
-    CONNECTION_CYCLING_WINDOW = 5      # Seconds
+    CONNECTION_CYCLING_WINDOW = 5  # Seconds
 
     SUSPICIOUS_PORTS = {
-        22: "SSH", 3389: "RDP", 5900: "VNC",
-        3306: "MySQL", 5432: "PostgreSQL", 27017: "MongoDB",
-        6379: "Redis", 21: "FTP", 23: "Telnet",
+        22: "SSH",
+        3389: "RDP",
+        5900: "VNC",
+        3306: "MySQL",
+        5432: "PostgreSQL",
+        27017: "MongoDB",
+        6379: "Redis",
+        21: "FTP",
+        23: "Telnet",
     }
 
     def __init__(self, local_ip: str):
@@ -182,19 +189,21 @@ class LiveAnomalyDetector:
                 if len(system_ports) >= 3:
                     severity = "CRITICAL"
 
-                anomalies.append({
-                    "anomaly_id": anomaly_id,
-                    "src_ip": src_ip,
-                    "dst_ip": dst_ip,
-                    "anomaly_type": "Port Scan",
-                    "severity": severity,
-                    "confidence": min(0.85 + len(ports) * 0.01, 0.99),
-                    "ports_scanned": sorted(ports)[:50],
-                    "port_count": len(ports),
-                    "time_window": self.PORT_SCAN_WINDOW,
-                    "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-                    "detection_mode": "live",
-                })
+                anomalies.append(
+                    {
+                        "anomaly_id": anomaly_id,
+                        "src_ip": src_ip,
+                        "dst_ip": dst_ip,
+                        "anomaly_type": "Port Scan",
+                        "severity": severity,
+                        "confidence": min(0.85 + len(ports) * 0.01, 0.99),
+                        "ports_scanned": sorted(ports)[:50],
+                        "port_count": len(ports),
+                        "time_window": self.PORT_SCAN_WINDOW,
+                        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                        "detection_mode": "live",
+                    }
+                )
         return anomalies
 
     def _detect_brute_force(self, packets: List[Dict]) -> List[Dict]:
@@ -210,9 +219,10 @@ class LiveAnomalyDetector:
         for (src_ip, dst_ip, dst_port), pkts in by_triplet.items():
             # Count "failed" indicators: RST flags, SYN-only (no ACK), low payload
             failed = [
-                p for p in pkts
-                if p.get("flags") in ("R", "RA", "S") or
-                   (p.get("flags") == "S" and p.get("payload_size", 0) == 0)
+                p
+                for p in pkts
+                if p.get("flags") in ("R", "RA", "S")
+                or (p.get("flags") == "S" and p.get("payload_size", 0) == 0)
             ]
 
             if len(failed) >= self.BRUTE_FORCE_THRESHOLD:
@@ -224,20 +234,22 @@ class LiveAnomalyDetector:
                 if dst_port in self.SUSPICIOUS_PORTS:
                     severity = "CRITICAL" if dst_port in (22, 3389, 5900) else "HIGH"
 
-                anomalies.append({
-                    "anomaly_id": anomaly_id,
-                    "src_ip": src_ip,
-                    "dst_ip": dst_ip,
-                    "dst_port": dst_port,
-                    "anomaly_type": "Brute Force",
-                    "severity": severity,
-                    "confidence": min(0.80 + len(failed) * 0.01, 0.99),
-                    "failed_attempts": len(failed),
-                    "time_window": self.BRUTE_FORCE_WINDOW,
-                    "service": self.SUSPICIOUS_PORTS.get(dst_port, "Unknown"),
-                    "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-                    "detection_mode": "live",
-                })
+                anomalies.append(
+                    {
+                        "anomaly_id": anomaly_id,
+                        "src_ip": src_ip,
+                        "dst_ip": dst_ip,
+                        "dst_port": dst_port,
+                        "anomaly_type": "Brute Force",
+                        "severity": severity,
+                        "confidence": min(0.80 + len(failed) * 0.01, 0.99),
+                        "failed_attempts": len(failed),
+                        "time_window": self.BRUTE_FORCE_WINDOW,
+                        "service": self.SUSPICIOUS_PORTS.get(dst_port, "Unknown"),
+                        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                        "detection_mode": "live",
+                    }
+                )
         return anomalies
 
     def _detect_connection_cycling(self, packets: List[Dict]) -> List[Dict]:
@@ -254,22 +266,25 @@ class LiveAnomalyDetector:
                 if not self._is_new(anomaly_id):
                     continue
 
-                anomalies.append({
-                    "anomaly_id": anomaly_id,
-                    "src_ip": src_ip,
-                    "dst_ip": syns[0].get("dst_ip", ""),
-                    "anomaly_type": "Connection Cycling",
-                    "severity": "MEDIUM",
-                    "confidence": 0.70,
-                    "connections_in_window": len(syns),
-                    "time_window": self.CONNECTION_CYCLING_WINDOW,
-                    "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-                    "detection_mode": "live",
-                })
+                anomalies.append(
+                    {
+                        "anomaly_id": anomaly_id,
+                        "src_ip": src_ip,
+                        "dst_ip": syns[0].get("dst_ip", ""),
+                        "anomaly_type": "Connection Cycling",
+                        "severity": "MEDIUM",
+                        "confidence": 0.70,
+                        "connections_in_window": len(syns),
+                        "time_window": self.CONNECTION_CYCLING_WINDOW,
+                        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                        "detection_mode": "live",
+                    }
+                )
         return anomalies
 
 
 # ── Live Processor ─────────────────────────────────────────
+
 
 class LiveProcessor:
     """
@@ -386,9 +401,9 @@ class LiveProcessor:
         """
         self._running = True
 
-        print(f"\n{'='*60}")
-        print(f"  SIH26153 — Live Network Intrusion Detection")
-        print(f"{'='*60}")
+        print(f"\n{'=' * 60}")
+        print("  SIH26153 — Live Network Intrusion Detection")
+        print(f"{'=' * 60}")
         print(f"  Local IP:    {self.local_ip}")
         print(f"  Interface:   {self.capturer.interface or '(auto-detect)'}")
         print(f"  Filter:      {self.capturer.bpf_filter or '(none)'}")
@@ -396,15 +411,13 @@ class LiveProcessor:
         print(f"  Anomalies:   {self.anomalies_file}")
         print(f"  Detection:   every {self.detection_interval}s")
         print(f"  Buffer:      {self.buffer.window_seconds}s rolling window")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         # Start capture
         self.capturer.start(timeout=timeout)
 
         # Start detection loop
-        self._detection_thread = threading.Thread(
-            target=self._detection_loop, daemon=True
-        )
+        self._detection_thread = threading.Thread(target=self._detection_loop, daemon=True)
         self._detection_thread.start()
         logger.info("Live detection engine started")
 
@@ -416,13 +429,16 @@ class LiveProcessor:
 
         try:
             from integration.prevention import PreventionEngine
+
             engine = PreventionEngine()
             applied = engine.auto_block(anomaly)
             if applied:
                 self._blocked_ips.add(src_ip)
                 logger.warning(f"  [AUTO-BLOCK] Successfully blocked {src_ip}")
             else:
-                logger.warning(f"  [AUTO-BLOCK] Failed to block {src_ip} (rule generated but not applied)")
+                logger.warning(
+                    f"  [AUTO-BLOCK] Failed to block {src_ip} (rule generated but not applied)"
+                )
         except Exception as e:
             logger.error(f"  [AUTO-BLOCK] Error blocking {src_ip}: {e}")
 
@@ -459,6 +475,7 @@ class LiveProcessor:
 
 # ── CLI Entry Point ────────────────────────────────────────
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="SIH26153 — Live Network Intrusion Detection",
@@ -488,13 +505,18 @@ Note: On Windows, install Npcap first: https://npcap.com/#download
     parser.add_argument("--filter", "-f", default=None, help="BPF filter string")
     parser.add_argument("--timeout", "-t", type=int, default=None, help="Stop after N seconds")
     parser.add_argument(
-        "--interval", type=int, default=5,
+        "--interval",
+        type=int,
+        default=5,
         help="Detection interval in seconds (default: 5)",
     )
     parser.add_argument("--packets-file", default=str(PACKETS_FILE), help="Packets output file")
-    parser.add_argument("--anomalies-file", default=str(ANOMALIES_FILE), help="Anomalies output file")
-    parser.add_argument("--auto-block", action="store_true",
-                        help="Auto-block attacker IPs via firewall rules")
+    parser.add_argument(
+        "--anomalies-file", default=str(ANOMALIES_FILE), help="Anomalies output file"
+    )
+    parser.add_argument(
+        "--auto-block", action="store_true", help="Auto-block attacker IPs via firewall rules"
+    )
 
     args = parser.parse_args()
 
@@ -523,15 +545,15 @@ Note: On Windows, install Npcap first: https://npcap.com/#download
         processor.stop()
 
     stats = processor.stats
-    print(f"\n{'='*60}")
-    print(f"  Session Summary")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print("  Session Summary")
+    print(f"{'=' * 60}")
     print(f"  Packets captured:  {stats['packets_captured']}")
     print(f"  Anomalies found:   {stats['anomalies_detected']}")
     print(f"  Packets file:      {processor.packets_file}")
     print(f"  Anomalies file:    {processor.anomalies_file}")
     print(f"  Auto-blocked IPs:  {len(stats.get('blocked_ips', []))}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
 
 if __name__ == "__main__":

@@ -1,9 +1,6 @@
 """Tests for integration.pipeline_runner module."""
 
 import json
-from pathlib import Path
-
-import pytest
 
 
 class TestStepGenerateTraffic:
@@ -11,6 +8,7 @@ class TestStepGenerateTraffic:
 
     def test_generate_traffic_creates_file(self, tmp_path):
         from integration.pipeline_runner import step_generate_traffic
+
         packets_file = tmp_path / "packets.jsonl"
         result = step_generate_traffic(packets_file)
         # Will either succeed or error depending on NTAV availability
@@ -19,6 +17,7 @@ class TestStepGenerateTraffic:
 
     def test_generate_traffic_returns_dict(self, tmp_path):
         from integration.pipeline_runner import step_generate_traffic
+
         result = step_generate_traffic(tmp_path / "test.jsonl")
         assert isinstance(result, dict)
 
@@ -28,6 +27,7 @@ class TestStepAnomalyDetection:
 
     def test_anomaly_detection_without_data(self, tmp_path):
         from integration.pipeline_runner import step_anomaly_detection
+
         packets = tmp_path / "packets.jsonl"
         anomalies = tmp_path / "anomalies.jsonl"
         # Create empty packets file
@@ -37,6 +37,7 @@ class TestStepAnomalyDetection:
 
     def test_anomaly_detection_returns_dict(self, tmp_path):
         from integration.pipeline_runner import step_anomaly_detection
+
         result = step_anomaly_detection(tmp_path / "p.jsonl", tmp_path / "a.jsonl")
         assert isinstance(result, dict)
 
@@ -46,6 +47,7 @@ class TestStepModelA:
 
     def test_model_a_without_model(self, tmp_path):
         from integration.pipeline_runner import step_model_a
+
         result = step_model_a(tmp_path / "packets.jsonl")
         assert result["status"] in ("skipped", "error", "ok")
         assert "note" in result or "error" in result or "model" in result
@@ -55,11 +57,13 @@ class TestStepModelB:
     """Test Model B step."""
 
     def test_model_b_when_disabled(self, tmp_path, monkeypatch):
-        import integration.pipeline_runner as pr
         import integration.model_forecaster as mf
+        import integration.pipeline_runner as pr
+
         monkeypatch.setattr(mf, "ENABLE_FORECASTING_MODEL", False)
         monkeypatch.setattr(pr, "ENABLE_FORECASTING_MODEL", False)
         from integration.pipeline_runner import step_model_b
+
         result = step_model_b(
             tmp_path / "packets.jsonl",
             tmp_path / "anomalies.jsonl",
@@ -68,11 +72,13 @@ class TestStepModelB:
         assert result["status"] == "disabled"
 
     def test_model_b_returns_dict(self, tmp_path, monkeypatch):
-        import integration.pipeline_runner as pr
         import integration.model_forecaster as mf
+        import integration.pipeline_runner as pr
+
         monkeypatch.setattr(mf, "ENABLE_FORECASTING_MODEL", False)
         monkeypatch.setattr(pr, "ENABLE_FORECASTING_MODEL", False)
         from integration.pipeline_runner import step_model_b
+
         result = step_model_b(
             tmp_path / "p.jsonl",
             tmp_path / "a.jsonl",
@@ -86,8 +92,10 @@ class TestStepKillchain:
 
     def test_killchain_when_disabled(self, tmp_path, monkeypatch):
         import integration.pipeline_runner as pr
+
         monkeypatch.setattr(pr, "ENABLE_KILLCHAIN", False)
         from integration.pipeline_runner import step_killchain
+
         result = step_killchain(
             tmp_path / "anomalies.jsonl",
             tmp_path / "features.jsonl",
@@ -97,8 +105,10 @@ class TestStepKillchain:
 
     def test_killchain_returns_dict(self, tmp_path, monkeypatch):
         import integration.pipeline_runner as pr
+
         monkeypatch.setattr(pr, "ENABLE_KILLCHAIN", False)
         from integration.pipeline_runner import step_killchain
+
         result = step_killchain(
             tmp_path / "a.jsonl",
             tmp_path / "f.jsonl",
@@ -112,6 +122,7 @@ class TestStepBuildGraph:
 
     def test_build_graph_with_anomalies(self, tmp_path):
         from integration.pipeline_runner import step_build_graph
+
         anomalies = tmp_path / "anomalies.jsonl"
         graph_json = tmp_path / "graph.json"
 
@@ -136,6 +147,7 @@ class TestStepBuildGraph:
 
     def test_build_graph_creates_valid_json(self, tmp_path):
         from integration.pipeline_runner import step_build_graph
+
         anomalies = tmp_path / "anomalies.jsonl"
         graph_json = tmp_path / "graph.json"
 
@@ -169,6 +181,7 @@ class TestStepBuildGraph:
 
     def test_build_graph_deduplicates_nodes(self, tmp_path):
         from integration.pipeline_runner import step_build_graph
+
         anomalies = tmp_path / "anomalies.jsonl"
         graph_json = tmp_path / "graph.json"
 
@@ -196,6 +209,7 @@ class TestStepBuildGraph:
 
     def test_build_graph_empty_anomalies(self, tmp_path):
         from integration.pipeline_runner import step_build_graph
+
         anomalies = tmp_path / "empty.jsonl"
         anomalies.write_text("")
         graph_json = tmp_path / "graph.json"
@@ -206,6 +220,7 @@ class TestStepBuildGraph:
 
     def test_build_graph_skips_entries_without_ips(self, tmp_path):
         from integration.pipeline_runner import step_build_graph
+
         anomalies = tmp_path / "anomalies.jsonl"
         graph_json = tmp_path / "graph.json"
 
@@ -235,9 +250,9 @@ class TestRunFullPipeline:
     """Test the full pipeline orchestrator."""
 
     def test_full_pipeline_returns_dict(self, monkeypatch, tmp_path):
-        import integration.pipeline_runner as pr
         import integration.model_forecaster as mf
-        import integration.config as cfg
+        import integration.pipeline_runner as pr
+
         monkeypatch.setattr(mf, "ENABLE_FORECASTING_MODEL", False)
         monkeypatch.setattr(pr, "ENABLE_FORECASTING_MODEL", False)
         monkeypatch.setattr(pr, "ENABLE_KILLCHAIN", False)
@@ -249,14 +264,16 @@ class TestRunFullPipeline:
         monkeypatch.setattr(pr, "FEATURES_FILE", tmp_path / "features.jsonl")
         monkeypatch.setattr(pr, "KILLCHAIN_INCIDENTS_FILE", tmp_path / "incidents.jsonl")
         from integration.pipeline_runner import run_full_pipeline
+
         result = run_full_pipeline(use_existing_packets=True)
         assert isinstance(result, dict)
         assert "pipeline_status" in result
         assert "elapsed_sec" in result
 
     def test_full_pipeline_with_disabled_features(self, monkeypatch, tmp_path):
-        import integration.pipeline_runner as pr
         import integration.model_forecaster as mf
+        import integration.pipeline_runner as pr
+
         monkeypatch.setattr(mf, "ENABLE_FORECASTING_MODEL", False)
         monkeypatch.setattr(pr, "ENABLE_FORECASTING_MODEL", False)
         monkeypatch.setattr(pr, "ENABLE_KILLCHAIN", False)
@@ -267,13 +284,15 @@ class TestRunFullPipeline:
         monkeypatch.setattr(pr, "FEATURES_FILE", tmp_path / "features.jsonl")
         monkeypatch.setattr(pr, "KILLCHAIN_INCIDENTS_FILE", tmp_path / "incidents.jsonl")
         from integration.pipeline_runner import run_full_pipeline
+
         result = run_full_pipeline(use_existing_packets=True)
         assert "step4_model_b" in result
         assert result["step4_model_b"]["status"] == "disabled"
 
     def test_full_pipeline_has_timestamps(self, monkeypatch, tmp_path):
-        import integration.pipeline_runner as pr
         import integration.model_forecaster as mf
+        import integration.pipeline_runner as pr
+
         monkeypatch.setattr(mf, "ENABLE_FORECASTING_MODEL", False)
         monkeypatch.setattr(pr, "ENABLE_FORECASTING_MODEL", False)
         monkeypatch.setattr(pr, "ENABLE_KILLCHAIN", False)
@@ -284,6 +303,7 @@ class TestRunFullPipeline:
         monkeypatch.setattr(pr, "FEATURES_FILE", tmp_path / "features.jsonl")
         monkeypatch.setattr(pr, "KILLCHAIN_INCIDENTS_FILE", tmp_path / "incidents.jsonl")
         from integration.pipeline_runner import run_full_pipeline
+
         result = run_full_pipeline(use_existing_packets=True)
         assert "started_at" in result
         assert "completed_at" in result

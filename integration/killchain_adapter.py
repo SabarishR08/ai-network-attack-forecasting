@@ -20,7 +20,9 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 # Add killchain repo to path for imports
-KILLCHAIN_DIR = str(Path(__file__).resolve().parents[1] / "repos" / "cyber-killchain-reconstruction-engine")
+KILLCHAIN_DIR = str(
+    Path(__file__).resolve().parents[1] / "repos" / "cyber-killchain-reconstruction-engine"
+)
 if KILLCHAIN_DIR not in sys.path:
     sys.path.insert(0, KILLCHAIN_DIR)
 
@@ -201,16 +203,18 @@ def convert_anomalies_to_killchain_events(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     event_dicts = []
     for ev in events:
-        event_dicts.append({
-            "timestamp": ev.timestamp.isoformat(),
-            "user": ev.entity,
-            "src_ip": ev.metadata.get("src_ip", ""),
-            "status": "FAIL",  # All anomalies map to FAIL-like events
-            "source": ev.source,
-            "event_type": ev.event_type,
-            "severity": ev.severity,
-            "metadata": ev.metadata,
-        })
+        event_dicts.append(
+            {
+                "timestamp": ev.timestamp.isoformat(),
+                "user": ev.entity,
+                "src_ip": ev.metadata.get("src_ip", ""),
+                "status": "FAIL",  # All anomalies map to FAIL-like events
+                "source": ev.source,
+                "event_type": ev.event_type,
+                "severity": ev.severity,
+                "metadata": ev.metadata,
+            }
+        )
 
     with open(output_path, "w") as f:
         json.dump(event_dicts, f, indent=2)
@@ -259,16 +263,18 @@ def convert_forecasts_to_killchain_events(
 
         new_dicts = []
         for ev in events:
-            new_dicts.append({
-                "timestamp": ev.timestamp.isoformat(),
-                "user": ev.entity,
-                "src_ip": ev.metadata.get("src_ip", ""),
-                "status": "FAIL",
-                "source": ev.source,
-                "event_type": ev.event_type,
-                "severity": ev.severity,
-                "metadata": ev.metadata,
-            })
+            new_dicts.append(
+                {
+                    "timestamp": ev.timestamp.isoformat(),
+                    "user": ev.entity,
+                    "src_ip": ev.metadata.get("src_ip", ""),
+                    "status": "FAIL",
+                    "source": ev.source,
+                    "event_type": ev.event_type,
+                    "severity": ev.severity,
+                    "metadata": ev.metadata,
+                }
+            )
 
         all_events = existing + new_dicts
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -293,7 +299,9 @@ def run_killchain_enrichment(
     """
     # Step 1: Convert events
     network_events = convert_anomalies_to_killchain_events(anomalies_file, events_output)
-    forecast_events = convert_forecasts_to_killchain_events(features_file, events_output, append=True)
+    forecast_events = convert_forecasts_to_killchain_events(
+        features_file, events_output, append=True
+    )
 
     # Step 2: Correlate
     try:
@@ -325,8 +333,12 @@ def run_killchain_enrichment(
         # Convert events back to NormalizedEvent if needed
         if "events" in incident:
             incident["events"] = [
-                e if isinstance(e, NormalizedEvent) else NormalizedEvent(
-                    timestamp=datetime.fromisoformat(e.get("timestamp", "2026-01-01T00:00:00")) if isinstance(e, dict) else datetime.now(),
+                e
+                if isinstance(e, NormalizedEvent)
+                else NormalizedEvent(
+                    timestamp=datetime.fromisoformat(e.get("timestamp", "2026-01-01T00:00:00"))
+                    if isinstance(e, dict)
+                    else datetime.now(),
                     source=e.get("source", "network") if isinstance(e, dict) else "network",
                     event_type=e.get("event_type", "unknown") if isinstance(e, dict) else "unknown",
                     entity=e.get("entity", "unknown") if isinstance(e, dict) else "unknown",
@@ -380,6 +392,8 @@ if __name__ == "__main__":
 
     print(f"\nKillchain enrichment complete: {len(incidents)} incidents")
     for inc in incidents:
-        print(f"  [{inc.get('priority', '?')}] {inc.get('pattern', 'unknown')} "
-              f"- {inc.get('entity', 'unknown')} "
-              f"(risk: {inc.get('risk_score', '?')})")
+        print(
+            f"  [{inc.get('priority', '?')}] {inc.get('pattern', 'unknown')} "
+            f"- {inc.get('entity', 'unknown')} "
+            f"(risk: {inc.get('risk_score', '?')})"
+        )

@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 
 class TestOpenAPISpec:
     """Test /api/openapi.json endpoint."""

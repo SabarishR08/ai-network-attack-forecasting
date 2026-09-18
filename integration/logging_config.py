@@ -41,6 +41,7 @@ log_context_var: ContextVar[dict] = ContextVar("log_context", default={})
 
 # ── JSON Formatter ───────────────────────────────────────────
 
+
 class StructuredJsonFormatter(logging.Formatter):
     """
     Formats log records as structured JSON with request ID and context.
@@ -108,10 +109,10 @@ class HumanReadableFormatter(logging.Formatter):
     """
 
     COLORS = {
-        "DEBUG": "\033[36m",     # Cyan
-        "INFO": "\033[32m",      # Green
-        "WARNING": "\033[33m",   # Yellow
-        "ERROR": "\033[31m",     # Red
+        "DEBUG": "\033[36m",  # Cyan
+        "INFO": "\033[32m",  # Green
+        "WARNING": "\033[33m",  # Yellow
+        "ERROR": "\033[31m",  # Red
         "CRITICAL": "\033[35m",  # Magenta
     }
     RESET = "\033[0m"
@@ -121,9 +122,7 @@ class HumanReadableFormatter(logging.Formatter):
         self.use_colors = use_colors and sys.stderr.isatty()
 
     def format(self, record: logging.LogRecord) -> str:
-        timestamp = datetime.fromtimestamp(record.created, tz=UTC).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        timestamp = datetime.fromtimestamp(record.created, tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
         level = record.levelname.ljust(8)
 
         # Request ID (truncated for readability)
@@ -150,6 +149,7 @@ class HumanReadableFormatter(logging.Formatter):
 
 # ── Logger Adapter ───────────────────────────────────────────
 
+
 class RequestContextLogger(logging.LoggerAdapter):
     """
     Logger adapter that automatically adds request context to log entries.
@@ -168,6 +168,7 @@ class RequestContextLogger(logging.LoggerAdapter):
 
 
 # ── Configuration ────────────────────────────────────────────
+
 
 def get_log_config() -> dict:
     """Load logging configuration from environment variables."""
@@ -228,9 +229,7 @@ def setup_logging(
     if config["format"] == "json":
         console_handler.setFormatter(StructuredJsonFormatter())
     else:
-        console_handler.setFormatter(HumanReadableFormatter(
-            use_colors=sys.stderr.isatty()
-        ))
+        console_handler.setFormatter(HumanReadableFormatter(use_colors=sys.stderr.isatty()))
 
     root_logger.addHandler(console_handler)
 
@@ -263,6 +262,7 @@ def setup_logging(
 
 
 # ── Request ID Utilities ─────────────────────────────────────
+
 
 def generate_request_id() -> str:
     """Generate a new unique request ID."""
@@ -301,6 +301,7 @@ def clear_log_context():
 
 # ── Flask Middleware ──────────────────────────────────────────
 
+
 def create_request_middleware(app):
     """
     Create Flask middleware that:
@@ -326,9 +327,7 @@ def create_request_middleware(app):
         )
 
         logger = logging.getLogger("request")
-        logger.info(
-            f"Request started: {flask_request.method} {flask_request.path}"
-        )
+        logger.info(f"Request started: {flask_request.method} {flask_request.path}")
 
     @app.after_request
     def after_request(response):
@@ -358,6 +357,7 @@ def create_request_middleware(app):
 
 
 # ── Convenience Functions ────────────────────────────────────
+
 
 def get_logger(name: str) -> RequestContextLogger:
     """

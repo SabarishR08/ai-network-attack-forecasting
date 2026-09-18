@@ -19,16 +19,16 @@ When exceeded, returns 429 Too Many Requests with Retry-After header.
 """
 
 import os
-import time
 import threading
+import time
 from collections import defaultdict
 from functools import wraps
 from typing import Callable, Optional, Tuple
 
-from flask import Flask, Response, jsonify, request
-
+from flask import Flask, jsonify, request
 
 # ── Configuration ────────────────────────────────────────────
+
 
 def _parse_rate(rate_str: str) -> Tuple[int, int]:
     """Parse a rate string like '60/min' into (count, window_seconds)."""
@@ -40,10 +40,14 @@ def _parse_rate(rate_str: str) -> Tuple[int, int]:
     unit = parts[1].lower()
 
     window_map = {
-        "sec": 1, "s": 1,
-        "min": 60, "m": 60,
-        "hour": 3600, "h": 3600,
-        "day": 86400, "d": 86400,
+        "sec": 1,
+        "s": 1,
+        "min": 60,
+        "m": 60,
+        "hour": 3600,
+        "h": 3600,
+        "day": 86400,
+        "d": 86400,
     }
     window = window_map.get(unit, 60)
     return count, window
@@ -62,6 +66,7 @@ def _get_config() -> dict:
 
 
 # ── Sliding Window Counter ───────────────────────────────────
+
 
 class SlidingWindowCounter:
     """
@@ -128,6 +133,7 @@ def get_counter() -> SlidingWindowCounter:
 
 # ── Client Key Resolution ────────────────────────────────────
 
+
 def _get_client_key() -> str:
     """Get the client identifier for rate limiting."""
     # Use X-Forwarded-For if behind a proxy, otherwise remote_addr
@@ -138,6 +144,7 @@ def _get_client_key() -> str:
 
 
 # ── Rate Limit Decorator ─────────────────────────────────────
+
 
 def rate_limit(
     max_requests: Optional[int] = None,
@@ -154,6 +161,7 @@ def rate_limit(
         category: Config category ('api', 'pipeline', 'docs', 'default')
         key_func: Custom key function (default: client IP)
     """
+
     def decorator(f):
         @wraps(f)
         def wrapped(*args, **kwargs):
@@ -175,11 +183,13 @@ def rate_limit(
             allowed, remaining, reset = _counter.check(key, limit_count, limit_window)
 
             if not allowed:
-                response = jsonify({
-                    "error": True,
-                    "message": "Rate limit exceeded. Try again later.",
-                    "status": 429,
-                })
+                response = jsonify(
+                    {
+                        "error": True,
+                        "message": "Rate limit exceeded. Try again later.",
+                        "status": 429,
+                    }
+                )
                 response.status_code = 429
                 response.headers["X-RateLimit-Limit"] = str(limit_count)
                 response.headers["X-RateLimit-Remaining"] = "0"
@@ -205,10 +215,12 @@ def rate_limit(
             return result
 
         return wrapped
+
     return decorator
 
 
 # ── Convenience Decorators ────────────────────────────────────
+
 
 def api_rate_limit(f):
     """Apply default API rate limit (120/min)."""
@@ -227,6 +239,7 @@ def docs_rate_limit(f):
 
 # ── Flask Integration ────────────────────────────────────────
 
+
 def init_rate_limiting(app: Flask):
     """
     Initialize rate limiting for a Flask app.
@@ -234,10 +247,13 @@ def init_rate_limiting(app: Flask):
     This registers an error handler for 429 responses
     and sets up configuration.
     """
+
     @app.errorhandler(429)
     def ratelimit_handler(e):
-        return jsonify({
-            "error": True,
-            "message": "Rate limit exceeded. Try again later.",
-            "status": 429,
-        }), 429
+        return jsonify(
+            {
+                "error": True,
+                "message": "Rate limit exceeded. Try again later.",
+                "status": 429,
+            }
+        ), 429

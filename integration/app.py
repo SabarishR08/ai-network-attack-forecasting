@@ -2,6 +2,7 @@
 SIH26153 — AI-Based Network Attack Forecasting
 Flask application — REST API + SSE for real-time dashboard.
 """
+
 import json
 import os
 import sys
@@ -14,7 +15,12 @@ from pathlib import Path
 from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
 from integration.logging_config import create_request_middleware, setup_logging
-from integration.ratelimit import api_rate_limit, docs_rate_limit, init_rate_limiting, pipeline_rate_limit
+from integration.ratelimit import (
+    api_rate_limit,
+    docs_rate_limit,
+    init_rate_limiting,
+    pipeline_rate_limit,
+)
 from integration.validation import (
     validate_anomaly_params,
     validate_forecast_params,
@@ -31,11 +37,9 @@ from integration.config import (
     DATA_DIR,
     FEATURES_FILE,
     GRAPH_JSON,
-    INCIDENT_REPORT_FILE,
     KILLCHAIN_INCIDENTS_FILE,
     PACKETS_FILE,
     PS40_DIR,
-    PROJECT_ROOT as ROOT,
 )
 
 app = Flask(
@@ -71,6 +75,7 @@ if os.getenv("KEEP_AWAKE", "0") == "1":
 
 
 # ── Helpers ────────────────────────────────────────────────
+
 
 def _load_jsonl(path: Path) -> list:
     """Load a JSONL file (one JSON object per line) or a JSON array file."""
@@ -125,6 +130,7 @@ def _severity_color(sev: str) -> str:
 
 # ── Page Routes ────────────────────────────────────────────
 
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -147,14 +153,15 @@ def killchain_page():
 
 # ── API: Dashboard Summary ──────────────────────────────────
 
+
 @app.route("/api/dashboard")
 @api_rate_limit
 def api_dashboard():
-    packets   = _load_jsonl(PACKETS_FILE)
+    packets = _load_jsonl(PACKETS_FILE)
     anomalies = _load_jsonl(ANOMALIES_FILE)
-    features  = _load_jsonl(FEATURES_FILE)
+    features = _load_jsonl(FEATURES_FILE)
     incidents = _load_jsonl(KILLCHAIN_INCIDENTS_FILE)
-    metrics   = _read_model_metrics()
+    metrics = _read_model_metrics()
 
     # Traffic
     protocols: dict = {}
@@ -177,9 +184,7 @@ def api_dashboard():
 
     # Forecast
     esc_predicted = sum(1 for f in features if f.get("escalation_predicted"))
-    avg_prob = (
-        sum(f.get("escalation_probability", 0.0) for f in features) / max(len(features), 1)
-    )
+    avg_prob = sum(f.get("escalation_probability", 0.0) for f in features) / max(len(features), 1)
 
     # Kill chain
     mitre_set: set = set()
@@ -199,41 +204,44 @@ def api_dashboard():
         timeline[ts] = timeline.get(ts, 0) + 1
     timeline_sorted = [{"t": k, "v": v} for k, v in sorted(timeline.items())][-20:]
 
-    return jsonify({
-        "traffic": {
-            "total_packets": len(packets),
-            "unique_src_ips": unique_src,
-            "unique_dst_ips": unique_dst,
-            "protocols": protocols,
-        },
-        "anomalies": {
-            "total": len(anomalies),
-            "by_type": by_type,
-            "by_severity": by_sev,
-            "timeline": timeline_sorted,
-        },
-        "forecast": {
-            "total_windows": len(features),
-            "escalation_predicted": esc_predicted,
-            "avg_escalation_prob": round(avg_prob, 4),
-            "enabled": os.getenv("ENABLE_FORECASTING_MODEL", "1") == "1",
-        },
-        "killchain": {
-            "total_incidents": len(incidents),
-            "mitre_techniques": sorted(mitre_set),
-            "stages": stages,
-        },
-        "model_a": {
-            "best_model": metrics.get("best_model", "RandomForest"),
-            "accuracy":   metrics.get("validation", {}).get("accuracy", 0),
-            "f1":         metrics.get("validation", {}).get("f1", 0),
-            "roc_auc":    metrics.get("validation", {}).get("roc_auc", 0),
-        },
-        "generated_at": datetime.now(UTC).isoformat() + "Z",
-    })
+    return jsonify(
+        {
+            "traffic": {
+                "total_packets": len(packets),
+                "unique_src_ips": unique_src,
+                "unique_dst_ips": unique_dst,
+                "protocols": protocols,
+            },
+            "anomalies": {
+                "total": len(anomalies),
+                "by_type": by_type,
+                "by_severity": by_sev,
+                "timeline": timeline_sorted,
+            },
+            "forecast": {
+                "total_windows": len(features),
+                "escalation_predicted": esc_predicted,
+                "avg_escalation_prob": round(avg_prob, 4),
+                "enabled": os.getenv("ENABLE_FORECASTING_MODEL", "1") == "1",
+            },
+            "killchain": {
+                "total_incidents": len(incidents),
+                "mitre_techniques": sorted(mitre_set),
+                "stages": stages,
+            },
+            "model_a": {
+                "best_model": metrics.get("best_model", "RandomForest"),
+                "accuracy": metrics.get("validation", {}).get("accuracy", 0),
+                "f1": metrics.get("validation", {}).get("f1", 0),
+                "roc_auc": metrics.get("validation", {}).get("roc_auc", 0),
+            },
+            "generated_at": datetime.now(UTC).isoformat() + "Z",
+        }
+    )
 
 
 # ── API: Individual Data Streams ────────────────────────────
+
 
 @app.route("/api/anomalies")
 @api_rate_limit
@@ -306,18 +314,21 @@ def api_graph():
                 seen_nodes.add(ip)
                 nodes.append({"id": ip, "type": kind, "label": ip})
 
-        edges.append({
-            "from": src,
-            "to": dst,
-            "label": a.get("anomaly_type", ""),
-            "severity": a.get("severity", "MEDIUM"),
-            "color": _severity_color(a.get("severity", "MEDIUM")),
-        })
+        edges.append(
+            {
+                "from": src,
+                "to": dst,
+                "label": a.get("anomaly_type", ""),
+                "severity": a.get("severity", "MEDIUM"),
+                "color": _severity_color(a.get("severity", "MEDIUM")),
+            }
+        )
 
     return jsonify({"nodes": nodes, "edges": edges})
 
 
 # ── API: Pipeline Control ───────────────────────────────────
+
 
 @app.route("/api/run-pipeline", methods=["POST"])
 @pipeline_rate_limit
@@ -325,10 +336,12 @@ def api_run_pipeline():
     """Trigger the full pipeline synchronously (for demo use)."""
     try:
         from integration.pipeline_runner import run_full_pipeline
+
         result = run_full_pipeline()
         return jsonify({"status": "ok", "result": result})
     except Exception as exc:
         import traceback
+
         return jsonify({"status": "error", "error": str(exc), "trace": traceback.format_exc()}), 500
 
 
@@ -336,23 +349,27 @@ def api_run_pipeline():
 @api_rate_limit
 def api_status():
     """Quick health/status check."""
-    return jsonify({
-        "status": "running",
-        "packets_file":    PACKETS_FILE.exists(),
-        "anomalies_file":  ANOMALIES_FILE.exists(),
-        "features_file":   FEATURES_FILE.exists(),
-        "incidents_file":  KILLCHAIN_INCIDENTS_FILE.exists(),
-        "forecasting_enabled": os.getenv("ENABLE_FORECASTING_MODEL", "1") == "1",
-        "killchain_enabled":   os.getenv("ENABLE_KILLCHAIN", "1") == "1",
-        "server_time": datetime.now(UTC).isoformat() + "Z",
-    })
+    return jsonify(
+        {
+            "status": "running",
+            "packets_file": PACKETS_FILE.exists(),
+            "anomalies_file": ANOMALIES_FILE.exists(),
+            "features_file": FEATURES_FILE.exists(),
+            "incidents_file": KILLCHAIN_INCIDENTS_FILE.exists(),
+            "forecasting_enabled": os.getenv("ENABLE_FORECASTING_MODEL", "1") == "1",
+            "killchain_enabled": os.getenv("ENABLE_KILLCHAIN", "1") == "1",
+            "server_time": datetime.now(UTC).isoformat() + "Z",
+        }
+    )
 
 
 # ── SSE: Live Event Feed ────────────────────────────────────
 
+
 @app.route("/api/stream")
 def api_stream():
     """Server-Sent Events stream — pushes new anomalies as they appear."""
+
     def generate():
         last_count = 0
         while True:
@@ -372,15 +389,14 @@ def api_stream():
             "X-Accel-Buffering": "no",
         },
     )
+
+
 # ── API: Real-Time Detection Stats ─────────────────────────
 @app.route("/api/detection/stats")
 @api_rate_limit
 def api_detection_stats():
     """Return real-time detection engine statistics."""
     try:
-        from integration.detection_engine import DetectionEngine, PerIPState
-        from integration.config import DATA_DIR
-
         anomalies = _load_jsonl(ANOMALIES_FILE)
         live_anomalies = [a for a in anomalies if a.get("detection_mode") == "live"]
 
@@ -394,14 +410,16 @@ def api_detection_stats():
             if s in by_severity:
                 by_severity[s] += 1
 
-        return jsonify({
-            "status": "active",
-            "total_anomalies": len(live_anomalies),
-            "by_type": by_type,
-            "by_severity": by_severity,
-            "latest_anomaly": live_anomalies[-1] if live_anomalies else None,
-            "server_time": datetime.now(UTC).isoformat() + "Z",
-        })
+        return jsonify(
+            {
+                "status": "active",
+                "total_anomalies": len(live_anomalies),
+                "by_type": by_type,
+                "by_severity": by_severity,
+                "latest_anomaly": live_anomalies[-1] if live_anomalies else None,
+                "server_time": datetime.now(UTC).isoformat() + "Z",
+            }
+        )
     except Exception as exc:
         return jsonify({"status": "error", "error": str(exc)}), 500
 
@@ -409,6 +427,7 @@ def api_detection_stats():
 @app.route("/api/detection/stream")
 def api_detection_stream():
     """SSE stream for real-time anomaly feed."""
+
     def generate():
         last_count = 0
         while True:
@@ -452,15 +471,18 @@ def api_blocklist():
 def api_detection_rules():
     """Generate firewall rules from current anomalies."""
     try:
-        from jsonl_to_iptables import load_anomalies, extract_blocked_ips, generate_iptables_rules
+        from jsonl_to_iptables import extract_blocked_ips, generate_iptables_rules, load_anomalies
+
         anomalies = load_anomalies(ANOMALIES_FILE)
         ip_data = extract_blocked_ips(anomalies)
         rules = generate_iptables_rules(ip_data)
-        return jsonify({
-            "rules": rules,
-            "ip_count": len(ip_data),
-            "anomaly_count": len(anomalies),
-        })
+        return jsonify(
+            {
+                "rules": rules,
+                "ip_count": len(ip_data),
+                "anomaly_count": len(anomalies),
+            }
+        )
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 
@@ -470,7 +492,9 @@ def api_detection_rules():
 def api_keepalive():
     """Lightweight endpoint for uptime monitors / cron jobs.
     Keeps Render free-tier service awake."""
-    return jsonify({"status": "alive", "uptime": time.time() - app.config.get("START_TIME", time.time())})
+    return jsonify(
+        {"status": "alive", "uptime": time.time() - app.config.get("START_TIME", time.time())}
+    )
 
 
 # ── API Documentation ───────────────────────────────────────
@@ -528,6 +552,6 @@ def api_docs():
 
 # ── Run ────────────────────────────────────────────────────
 if __name__ == "__main__":
-    port  = int(os.getenv("PORT", 5000))
+    port = int(os.getenv("PORT", 5000))
     debug = os.getenv("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)

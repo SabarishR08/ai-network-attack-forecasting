@@ -7,18 +7,17 @@ import pytest
 from integration.validation import (
     ALLOWED_SEVERITIES,
     MAX_LIMIT,
+    error_response,
+    sanitize_ip,
+    sanitize_string,
     validate_anomaly_params,
     validate_flagged,
     validate_forecast_params,
     validate_limit,
     validate_packet_params,
     validate_severity,
-    sanitize_string,
-    sanitize_ip,
-    error_response,
     validation_error,
 )
-
 
 # ── validate_limit ───────────────────────────────────────────
 
@@ -372,6 +371,7 @@ class TestValidationInEndpoints:
 def app_ctx():
     """Provide Flask app context for error response tests."""
     from integration.app import app
+
     with app.app_context():
         yield
 
@@ -381,25 +381,54 @@ def sample_data_dir(tmp_path, monkeypatch):
     """Minimal fixture for endpoint validation tests."""
     import integration.app as app_module
 
-    packets = [{"src_ip": "1.1.1.1", "dst_ip": "2.2.2.2", "dst_port": 80,
-                "protocol": "TCP", "flags": "S", "payload_size": 64,
-                "timestamp": "2024-01-15T10:00:00"}]
-    anomalies = [{"src_ip": "1.1.1.1", "dst_ip": "2.2.2.2",
-                  "anomaly_type": "Port Scan", "severity": "HIGH",
-                  "timestamp": "2024-01-15T10:00:00", "confidence": 0.9}]
-    features = [{"src_ip": "1.1.1.1", "dst_ip": "2.2.2.2",
-                 "escalation_probability": 0.8, "escalation_predicted": True,
-                 "window_start": "2024-01-15T10:00:00", "window_end": "2024-01-15T10:00:30",
-                 "total_packets": 10, "port_diversity": 3, "connection_rate": 1.0,
-                 "syn_count": 5, "rst_count": 1, "syn_rst_ratio": 5.0,
-                 "payload_size_mean": 100.0, "payload_size_max": 200}]
+    packets = [
+        {
+            "src_ip": "1.1.1.1",
+            "dst_ip": "2.2.2.2",
+            "dst_port": 80,
+            "protocol": "TCP",
+            "flags": "S",
+            "payload_size": 64,
+            "timestamp": "2024-01-15T10:00:00",
+        }
+    ]
+    anomalies = [
+        {
+            "src_ip": "1.1.1.1",
+            "dst_ip": "2.2.2.2",
+            "anomaly_type": "Port Scan",
+            "severity": "HIGH",
+            "timestamp": "2024-01-15T10:00:00",
+            "confidence": 0.9,
+        }
+    ]
+    features = [
+        {
+            "src_ip": "1.1.1.1",
+            "dst_ip": "2.2.2.2",
+            "escalation_probability": 0.8,
+            "escalation_predicted": True,
+            "window_start": "2024-01-15T10:00:00",
+            "window_end": "2024-01-15T10:00:30",
+            "total_packets": 10,
+            "port_diversity": 3,
+            "connection_rate": 1.0,
+            "syn_count": 5,
+            "rst_count": 1,
+            "syn_rst_ratio": 5.0,
+            "payload_size_mean": 100.0,
+            "payload_size_max": 200,
+        }
+    ]
 
     for name, data in [("packets", packets), ("anomalies", anomalies), ("features", features)]:
         fpath = tmp_path / f"{name}.jsonl"
         with open(fpath, "w") as f:
             for item in data:
                 f.write(json.dumps(item) + "\n")
-        monkeypatch.setattr(app_module, name.upper() + "_FILE" if name != "features" else "FEATURES_FILE", fpath)
+        monkeypatch.setattr(
+            app_module, name.upper() + "_FILE" if name != "features" else "FEATURES_FILE", fpath
+        )
 
     incidents_file = tmp_path / "killchain_incidents.jsonl"
     incidents_file.write_text("[]")

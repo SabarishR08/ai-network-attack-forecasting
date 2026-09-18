@@ -1,7 +1,6 @@
 """Tests for keep-alive functionality."""
 
 import json
-import time
 
 
 class TestKeepAliveEndpoint:
@@ -45,15 +44,18 @@ class TestKeepAwakeScript:
 
     def test_script_importable(self):
         import importlib
+
         spec = importlib.util.find_spec("keep_awake")
         assert spec is not None
 
     def test_ping_function_success(self):
         """Test ping function with a mock server would need Flask test client."""
         from keep_awake import ping
+
         # ping expects a real URL, just verify it's callable
         assert callable(ping)
 
     def test_script_has_main(self):
         from keep_awake import main
+
         assert callable(main)

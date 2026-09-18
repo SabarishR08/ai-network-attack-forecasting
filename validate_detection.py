@@ -13,9 +13,7 @@ Usage:
 
 import argparse
 import json
-import os
 import sys
-import time
 from datetime import datetime, timezone
 
 UTC = timezone.utc
@@ -252,7 +250,7 @@ def run_validation(quick=False, verbose=False):
     vr.expected_type = "UDP Flood"
     vr.anomalies = [a for a in anomalies if "UDP Flood" in a.get("anomaly_type", "")]
     vr.passed = len(vr.anomalies) > 0
-    vr.message = f"Detected UDP flood" if vr.passed else "FAILED: No UDP flood detected"
+    vr.message = "Detected UDP flood" if vr.passed else "FAILED: No UDP flood detected"
     results.append(vr)
     _print_result(vr, verbose)
 

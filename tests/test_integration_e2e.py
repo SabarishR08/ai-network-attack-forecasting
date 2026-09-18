@@ -5,16 +5,11 @@ and verify that all API responses are correct and consistent.
 """
 
 import json
-import os
-import time
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from unittest.mock import patch
+from datetime import datetime, timedelta
 
 import pytest
 
 from integration.app import app
-
 
 # ── Fixtures ─────────────────────────────────────────────────
 
@@ -30,6 +25,7 @@ def client():
 def _make_packets(n=50, base_ts="2024-01-15T10:00:00"):
     """Generate realistic synthetic packet data."""
     import random
+
     random.seed(42)
 
     src_ips = [f"192.168.1.{i}" for i in range(1, 11)]
@@ -58,6 +54,7 @@ def _make_packets(n=50, base_ts="2024-01-15T10:00:00"):
 def _make_anomalies(n=15, base_ts="2024-01-15T10:00:00"):
     """Generate realistic anomaly records."""
     import random
+
     random.seed(42)
 
     types_sev = [
@@ -96,13 +93,18 @@ def _make_anomalies(n=15, base_ts="2024-01-15T10:00:00"):
 def _make_features(n=20, flagged_ratio=0.3, base_ts="2024-01-15T10:00:00"):
     """Generate forecast feature vectors."""
     import random
+
     random.seed(42)
 
     base = datetime.fromisoformat(base_ts)
     features = []
     for i in range(n):
         is_flagged = i < int(n * flagged_ratio)
-        prob = round(random.uniform(0.6, 0.95), 4) if is_flagged else round(random.uniform(0.01, 0.4), 4)
+        prob = (
+            round(random.uniform(0.6, 0.95), 4)
+            if is_flagged
+            else round(random.uniform(0.01, 0.4), 4)
+        )
         offset = timedelta(seconds=i * 30)
         feat = {
             "src_ip": f"192.168.1.{(i % 10) + 1}",
@@ -139,18 +141,20 @@ def _make_incidents(n=5):
     incidents = []
     for i in range(n):
         tech = techniques[i % len(techniques)]
-        incidents.append({
-            "pattern": f"incident_{i}",
-            "entity": f"192.168.1.{i + 1}",
-            "risk_score": round(50 + i * 10, 1),
-            "priority": "high" if i < 2 else "medium",
-            "kill_chain_stage": stages[i % len(stages)],
-            "mitre": {
-                "technique_id": tech["technique_id"],
-                "technique_name": tech["technique_name"],
-            },
-            "event_count": i + 2,
-        })
+        incidents.append(
+            {
+                "pattern": f"incident_{i}",
+                "entity": f"192.168.1.{i + 1}",
+                "risk_score": round(50 + i * 10, 1),
+                "priority": "high" if i < 2 else "medium",
+                "kill_chain_stage": stages[i % len(stages)],
+                "mitre": {
+                    "technique_id": tech["technique_id"],
+                    "technique_name": tech["technique_name"],
+                },
+                "event_count": i + 2,
+            }
+        )
     return incidents
 
 
@@ -214,23 +218,27 @@ def multi_attacker_data(tmp_path, monkeypatch):
         for j, dst in enumerate(targets):
             for k in range(5):
                 ts = f"2024-01-15T10:0{i}:{j * 30 + k:02d}"
-                packets.append({
+                packets.append(
+                    {
+                        "src_ip": src,
+                        "dst_ip": dst,
+                        "dst_port": 80 + k,
+                        "protocol": "TCP",
+                        "flags": "S",
+                        "payload_size": 64,
+                        "timestamp": ts,
+                    }
+                )
+            anomalies.append(
+                {
                     "src_ip": src,
                     "dst_ip": dst,
-                    "dst_port": 80 + k,
-                    "protocol": "TCP",
-                    "flags": "S",
-                    "payload_size": 64,
-                    "timestamp": ts,
-                })
-            anomalies.append({
-                "src_ip": src,
-                "dst_ip": dst,
-                "anomaly_type": "Port Scan" if i % 2 == 0 else "Brute Force",
-                "severity": ["HIGH", "CRITICAL", "MEDIUM"][i % 3],
-                "timestamp": f"2024-01-15T10:0{i}:{j * 30:02d}",
-                "confidence": 0.9,
-            })
+                    "anomaly_type": "Port Scan" if i % 2 == 0 else "Brute Force",
+                    "severity": ["HIGH", "CRITICAL", "MEDIUM"][i % 3],
+                    "timestamp": f"2024-01-15T10:0{i}:{j * 30:02d}",
+                    "confidence": 0.9,
+                }
+            )
 
     # Write files
     packets_file = tmp_path / "packets.jsonl"
@@ -255,13 +263,17 @@ def multi_attacker_data(tmp_path, monkeypatch):
     monkeypatch.setattr(app_module, "KILLCHAIN_INCIDENTS_FILE", incidents_file)
     monkeypatch.setattr(app_module, "GRAPH_JSON", graph_file)
 
-    return {"packets": packets, "anomalies": anomalies, "files": {
-        "packets": packets_file,
-        "anomalies": anomalies_file,
-        "features": features_file,
-        "incidents": incidents_file,
-        "graph": graph_file,
-    }}
+    return {
+        "packets": packets,
+        "anomalies": anomalies,
+        "files": {
+            "packets": packets_file,
+            "anomalies": anomalies_file,
+            "features": features_file,
+            "incidents": incidents_file,
+            "graph": graph_file,
+        },
+    }
 
 
 # ── Full Pipeline E2E Tests ────────────────────────────────────
@@ -574,9 +586,10 @@ class TestRunPipelineEndpoint:
     """Verify /api/run-pipeline POST endpoint."""
 
     def test_pipeline_returns_result(self, client, monkeypatch):
-        import integration.pipeline_runner as pr
         import integration.model_forecaster as mf
+        import integration.pipeline_runner as pr
         from integration.ratelimit import get_counter
+
         get_counter().clear()  # Reset rate limiter for this test
         monkeypatch.setattr(mf, "ENABLE_FORECASTING_MODEL", False)
         monkeypatch.setattr(pr, "ENABLE_FORECASTING_MODEL", False)

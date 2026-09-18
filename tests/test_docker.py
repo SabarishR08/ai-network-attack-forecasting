@@ -1,10 +1,8 @@
 """Tests for Docker configuration files — Dockerfile, docker-compose.yml, .dockerignore."""
 
-import os
 from pathlib import Path
 
 import pytest
-
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 

@@ -23,10 +23,8 @@ import json
 import logging
 import os
 import platform
-import subprocess
 import sys
 import threading
-import time
 from datetime import datetime, timezone
 
 UTC = timezone.utc
@@ -41,15 +39,15 @@ logger = logging.getLogger(__name__)
 # Note: _tcp_flags_to_string() below uses bitwise ops, so this dict
 # is only used for quick lookups of common single-flag values.
 TCP_FLAG_MAP = {
-    0x01: "F",      # FIN
-    0x02: "S",      # SYN
-    0x04: "R",      # RST
-    0x08: "P",      # PSH
-    0x10: "A",      # ACK
-    0x11: "FA",     # FIN+ACK
-    0x12: "SA",     # SYN+ACK
-    0x14: "RA",     # RST+ACK
-    0x18: "PA",     # PSH+ACK
+    0x01: "F",  # FIN
+    0x02: "S",  # SYN
+    0x04: "R",  # RST
+    0x08: "P",  # PSH
+    0x10: "A",  # ACK
+    0x11: "FA",  # FIN+ACK
+    0x12: "SA",  # SYN+ACK
+    0x14: "RA",  # RST+ACK
+    0x18: "PA",  # PSH+ACK
 }
 
 
@@ -229,7 +227,8 @@ class PacketCapturer:
             logger.warning("Capture already running")
             return
 
-        from scapy.all import conf, get_if_list
+        from scapy.all import get_if_list
+
         try:
             from scapy.sendrecv import AsyncSniffer as Sniffer
         except ImportError:
@@ -241,15 +240,18 @@ class PacketCapturer:
             # Try to find the interface that has our local IP
             try:
                 from scapy.arch.windows import get_windows_if_list
+
                 local_ip = get_local_ip()
                 win_ifaces = get_windows_if_list()
                 for wif in win_ifaces:
-                    if local_ip in (wif.get('ips') or []):
+                    if local_ip in (wif.get("ips") or []):
                         # Found it — build the NPF device name from the GUID
-                        guid = wif.get('guid', '')
+                        guid = wif.get("guid", "")
                         if guid:
                             iface = f"\\Device\\NPF_{guid}"
-                            logger.info(f"Auto-selected interface: {wif.get('name', iface)} ({iface})")
+                            logger.info(
+                                f"Auto-selected interface: {wif.get('name', iface)} ({iface})"
+                            )
                             break
             except Exception as e:
                 logger.debug(f"Could not auto-detect by IP: {e}")
@@ -282,8 +284,7 @@ class PacketCapturer:
             )
             self._capture.start()
             logger.info(
-                f"Capture started: iface={iface}, timeout={timeout}, "
-                f"filter={self.bpf_filter}"
+                f"Capture started: iface={iface}, timeout={timeout}, filter={self.bpf_filter}"
             )
         except PermissionError:
             self._running = False
@@ -299,7 +300,7 @@ class PacketCapturer:
                     "Packet capture requires root/admin privileges. "
                     "Run with: sudo python -m integration.packet_capture"
                 )
-        except Exception as e:
+        except Exception:
             self._running = False
             self._close_output()
             raise
@@ -316,9 +317,7 @@ class PacketCapturer:
             except Exception as e:
                 logger.debug(f"Error stopping capture: {e}")
         self._close_output()
-        logger.info(
-            f"Capture stopped. {self._packet_count} packets written to {self.output_file}"
-        )
+        logger.info(f"Capture stopped. {self._packet_count} packets written to {self.output_file}")
 
     def start_background(
         self,
@@ -377,6 +376,7 @@ def list_interfaces() -> List[str]:
     """List available network interfaces."""
     try:
         from scapy.all import get_if_list
+
         return get_if_list()
     except Exception:
         return []
@@ -386,6 +386,7 @@ def get_default_interface() -> Optional[str]:
     """Get the default network interface."""
     try:
         from scapy.all import conf
+
         return conf.iface
     except Exception:
         return None
@@ -393,12 +394,14 @@ def get_default_interface() -> Optional[str]:
 
 # ── Windows Admin Elevation ───────────────────────────────
 
+
 def is_windows_admin() -> bool:
     """Check if running with admin privileges on Windows."""
     if platform.system() != "Windows":
         return os.geteuid() == 0  # type: ignore[attr-defined]
     try:
         import ctypes
+
         return ctypes.windll.shell32.IsUserAnAdmin() != 0
     except Exception:
         return False
@@ -411,9 +414,8 @@ def request_windows_elevation():
     logger.info("Requesting admin elevation via UAC...")
     try:
         import ctypes
-        ctypes.windll.shell32.ShellExecuteW(
-            None, "runas", script, args, None, 1
-        )
+
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", script, args, None, 1)
     except Exception as e:
         print(f"Failed to elevate: {e}")
         print("Please right-click your terminal and 'Run as administrator'.")
@@ -438,15 +440,15 @@ def _run_main_logic(args):
         return
 
     local_ip = get_local_ip()
-    print(f"\n{'='*60}")
-    print(f"  SIH26153 -- Real-Time Packet Capture")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print("  SIH26153 -- Real-Time Packet Capture")
+    print(f"{'=' * 60}")
     print(f"  Local IP:   {local_ip}")
     print(f"  Interface:  {args.interface or '(auto-detect)'}")
     print(f"  Output:     {args.output}")
     print(f"  Filter:     {args.filter or '(none)'}")
     print(f"  Timeout:    {args.timeout or '(Ctrl+C to stop)'}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     capturer = PacketCapturer(
         interface=args.interface,
@@ -500,28 +502,33 @@ Note: On Windows, install Npcap first: https://npcap.com/#download
         """,
     )
     parser.add_argument(
-        "--interface", "-i",
+        "--interface",
+        "-i",
         default=None,
         help="Network interface (default: auto-detect)",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         default="data/packets.jsonl",
         help="Output file (default: data/packets.jsonl)",
     )
     parser.add_argument(
-        "--filter", "-f",
+        "--filter",
+        "-f",
         default=None,
         help="BPF filter (e.g. 'tcp port 22', 'host 192.168.1.1')",
     )
     parser.add_argument(
-        "--timeout", "-t",
+        "--timeout",
+        "-t",
         type=int,
         default=None,
         help="Stop after N seconds (default: run until Ctrl+C)",
     )
     parser.add_argument(
-        "--count", "-c",
+        "--count",
+        "-c",
         type=int,
         default=None,
         help="Stop after N packets",

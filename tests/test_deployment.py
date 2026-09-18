@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -88,7 +87,9 @@ class TestVercelConfig:
         for h in data["headers"]:
             header_list = h.get("headers", [])
             for header_entry in header_list:
-                if isinstance(header_entry, dict) and "Access-Control" in header_entry.get("key", ""):
+                if isinstance(header_entry, dict) and "Access-Control" in header_entry.get(
+                    "key", ""
+                ):
                     found_cors = True
                     break
                 elif isinstance(header_entry, str) and "Access-Control" in header_entry:
