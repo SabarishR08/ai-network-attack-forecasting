@@ -14,10 +14,11 @@ All feature flags are controlled via environment variables (see config.py).
 """
 
 import json
-import logging
 import sys
 import time
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -28,12 +29,19 @@ logger = get_logger("pipeline")
 
 # ── Bootstrap paths ────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-NTAV_DIR     = PROJECT_ROOT / "repos" / "Network-Threat-Anomaly-Visualizer"
-PS40_DIR     = PROJECT_ROOT / "repos" / "network-intrusion-detection"
+NTAV_DIR = PROJECT_ROOT / "repos" / "Network-Threat-Anomaly-Visualizer"
+PS40_DIR = PROJECT_ROOT / "repos" / "network-intrusion-detection"
 KILLCHAIN_DIR = PROJECT_ROOT / "repos" / "cyber-killchain-reconstruction-engine"
-DATA_DIR     = PROJECT_ROOT / "data"
+DATA_DIR = PROJECT_ROOT / "data"
 
-for p in [str(PROJECT_ROOT), str(NTAV_DIR), str(NTAV_DIR / "src"), str(PS40_DIR), str(PS40_DIR / "src"), str(KILLCHAIN_DIR)]:
+for p in [
+    str(PROJECT_ROOT),
+    str(NTAV_DIR),
+    str(NTAV_DIR / "src"),
+    str(PS40_DIR),
+    str(PS40_DIR / "src"),
+    str(KILLCHAIN_DIR),
+]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
@@ -47,14 +55,15 @@ from integration.config import (
     PACKETS_FILE,
 )
 
-
 # ── Step helpers ───────────────────────────────────────────
+
 
 def step_generate_traffic(packets_file: Path) -> Dict:
     """Step 1 — Generate synthetic traffic using NTAV generator."""
     logger.info("Step 1: Generating synthetic traffic data")
     try:
         from generate_test_data import SyntheticDataGenerator
+
         gen = SyntheticDataGenerator(str(packets_file))
         gen.generate_dataset()
         count = sum(1 for _ in packets_file.open())
@@ -105,6 +114,7 @@ def step_live_capture(
         }
     except PermissionError:
         import platform as _platform
+
         if _platform.system() == "Windows":
             msg = (
                 "Live capture requires admin privileges on Windows. "
@@ -112,10 +122,7 @@ def step_live_capture(
                 "or run: python run.py --live (auto-elevates)"
             )
         else:
-            msg = (
-                "Live capture requires root/admin privileges. "
-                "Run with: sudo python run.py --live"
-            )
+            msg = "Live capture requires root/admin privileges. Run with: sudo python run.py --live"
         logger.error(msg)
         return {"status": "error", "error": msg}
     except Exception as exc:
@@ -128,6 +135,7 @@ def step_anomaly_detection(packets_file: Path, anomalies_file: Path) -> Dict:
     logger.info("Step 2: Running anomaly detection (NTAV)")
     try:
         from anomaly_detection import AnomalyDetector
+
         detector = AnomalyDetector(str(packets_file))
         anomalies = detector.detect_all_anomalies()
         detector.save_anomalies(str(anomalies_file))
@@ -189,6 +197,7 @@ def step_model_b(packets_file: Path, anomalies_file: Path, features_file: Path) 
     logger.info("Step 4: Model B — escalation forecaster")
     try:
         from integration.model_forecaster import run_forecasting_pipeline
+
         result = run_forecasting_pipeline(
             packets_file=str(packets_file),
             anomalies_file=str(anomalies_file),
@@ -211,6 +220,7 @@ def step_killchain(anomalies_file: Path, features_file: Path, incidents_file: Pa
     try:
         events_file = DATA_DIR / "killchain_events.json"
         from integration.killchain_adapter import run_killchain_enrichment
+
         incidents = run_killchain_enrichment(
             anomalies_file=str(anomalies_file),
             features_file=str(features_file),
@@ -231,10 +241,15 @@ def step_build_graph(anomalies_file: Path, graph_json: Path) -> Dict:
     logger.info("Step 6: Building attack graph")
     try:
         with open(anomalies_file, encoding="utf-8") as f:
-            anomalies = [json.loads(l) for l in f if l.strip()]
+            anomalies = [json.loads(line) for line in f if line.strip()]
 
         nodes, edges, seen = [], [], set()
-        color_map = {"CRITICAL": "#ef4444", "HIGH": "#f97316", "MEDIUM": "#eab308", "LOW": "#22c55e"}
+        color_map = {
+            "CRITICAL": "#ef4444",
+            "HIGH": "#f97316",
+            "MEDIUM": "#eab308",
+            "LOW": "#22c55e",
+        }
 
         for a in anomalies:
             src = a.get("src_ip", "")
@@ -246,13 +261,15 @@ def step_build_graph(anomalies_file: Path, graph_json: Path) -> Dict:
                     seen.add(ip)
                     nodes.append({"id": ip, "type": kind, "label": ip})
             sev = a.get("severity", "MEDIUM")
-            edges.append({
-                "from": src,
-                "to": dst,
-                "label": a.get("anomaly_type", ""),
-                "severity": sev,
-                "color": color_map.get(sev, "#6b7280"),
-            })
+            edges.append(
+                {
+                    "from": src,
+                    "to": dst,
+                    "label": a.get("anomaly_type", ""),
+                    "severity": sev,
+                    "color": color_map.get(sev, "#6b7280"),
+                }
+            )
 
         graph = {"nodes": nodes, "edges": edges}
         graph_json.parent.mkdir(parents=True, exist_ok=True)
@@ -266,6 +283,7 @@ def step_build_graph(anomalies_file: Path, graph_json: Path) -> Dict:
 
 
 # ── Main orchestrator ───────────────────────────────────────
+
 
 def run_full_pipeline(
     use_existing_packets: bool = False,
@@ -301,7 +319,11 @@ def run_full_pipeline(
         )
     elif use_existing_packets and PACKETS_FILE.exists():
         logger.info("Step 1: Reusing existing packets file")
-        results["step1_traffic"] = {"status": "reused", "packets": sum(1 for _ in open(PACKETS_FILE)), "mode": "existing"}
+        results["step1_traffic"] = {
+            "status": "reused",
+            "packets": sum(1 for _ in open(PACKETS_FILE)),
+            "mode": "existing",
+        }
     else:
         results["step1_traffic"] = step_generate_traffic(PACKETS_FILE)
 
@@ -323,7 +345,9 @@ def run_full_pipeline(
         FEATURES_FILE.write_text("")
 
     # ── Step 5: Kill chain ─────────────────────────────────
-    results["step5_killchain"] = step_killchain(ANOMALIES_FILE, FEATURES_FILE, KILLCHAIN_INCIDENTS_FILE)
+    results["step5_killchain"] = step_killchain(
+        ANOMALIES_FILE, FEATURES_FILE, KILLCHAIN_INCIDENTS_FILE
+    )
 
     # ── Step 6: Attack graph ───────────────────────────────
     if ANOMALIES_FILE.exists():
@@ -350,16 +374,26 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Run SIH26153 full pipeline")
-    parser.add_argument("--reuse-packets", action="store_true",
-                        help="Skip packet generation and reuse existing data/packets.jsonl")
-    parser.add_argument("--live", action="store_true",
-                        help="Capture real traffic instead of generating synthetic data")
-    parser.add_argument("--live-duration", type=int, default=30,
-                        help="Seconds to capture in live mode (default: 30)")
-    parser.add_argument("--live-interface", default=None,
-                        help="Network interface for live capture")
-    parser.add_argument("--live-filter", default=None,
-                        help="BPF filter for live capture (e.g. 'tcp port 22')")
+    parser.add_argument(
+        "--reuse-packets",
+        action="store_true",
+        help="Skip packet generation and reuse existing data/packets.jsonl",
+    )
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="Capture real traffic instead of generating synthetic data",
+    )
+    parser.add_argument(
+        "--live-duration",
+        type=int,
+        default=30,
+        help="Seconds to capture in live mode (default: 30)",
+    )
+    parser.add_argument("--live-interface", default=None, help="Network interface for live capture")
+    parser.add_argument(
+        "--live-filter", default=None, help="BPF filter for live capture (e.g. 'tcp port 22')"
+    )
     args = parser.parse_args()
 
     result = run_full_pipeline(

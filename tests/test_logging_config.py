@@ -2,11 +2,6 @@
 
 import json
 import logging
-import os
-import tempfile
-from io import StringIO
-from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -22,12 +17,10 @@ from integration.logging_config import (
     get_request_id,
     log_context_var,
     log_function_call,
-    request_id_var,
     set_log_context,
     set_request_id,
     setup_logging,
 )
-
 
 # ── Request ID ───────────────────────────────────────────────
 
@@ -99,8 +92,13 @@ class TestStructuredJsonFormatter:
     def test_formats_basic_log(self):
         formatter = StructuredJsonFormatter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="test.py",
-            lineno=1, msg="Hello world", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="Hello world",
+            args=(),
+            exc_info=None,
         )
         output = formatter.format(record)
         data = json.loads(output)
@@ -113,8 +111,13 @@ class TestStructuredJsonFormatter:
         set_request_id("abc-123")
         formatter = StructuredJsonFormatter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="test.py",
-            lineno=1, msg="test", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="test",
+            args=(),
+            exc_info=None,
         )
         output = formatter.format(record)
         data = json.loads(output)
@@ -125,8 +128,13 @@ class TestStructuredJsonFormatter:
         set_log_context(method="GET", path="/api/status")
         formatter = StructuredJsonFormatter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="test.py",
-            lineno=1, msg="test", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="test",
+            args=(),
+            exc_info=None,
         )
         output = formatter.format(record)
         data = json.loads(output)
@@ -140,11 +148,17 @@ class TestStructuredJsonFormatter:
             raise ValueError("test error")
         except ValueError:
             import sys
+
             exc_info = sys.exc_info()
 
         record = logging.LogRecord(
-            name="test", level=logging.ERROR, pathname="test.py",
-            lineno=1, msg="Error occurred", args=(), exc_info=exc_info,
+            name="test",
+            level=logging.ERROR,
+            pathname="test.py",
+            lineno=1,
+            msg="Error occurred",
+            args=(),
+            exc_info=exc_info,
         )
         output = formatter.format(record)
         data = json.loads(output)
@@ -154,8 +168,13 @@ class TestStructuredJsonFormatter:
     def test_output_is_valid_json(self):
         formatter = StructuredJsonFormatter()
         record = logging.LogRecord(
-            name="test", level=logging.WARNING, pathname="test.py",
-            lineno=1, msg="Special chars: <>&\"'", args=(), exc_info=None,
+            name="test",
+            level=logging.WARNING,
+            pathname="test.py",
+            lineno=1,
+            msg="Special chars: <>&\"'",
+            args=(),
+            exc_info=None,
         )
         output = formatter.format(record)
         data = json.loads(output)  # Should not raise
@@ -169,8 +188,13 @@ class TestHumanReadableFormatter:
     def test_basic_format(self):
         formatter = HumanReadableFormatter(use_colors=False)
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="test.py",
-            lineno=1, msg="Hello world", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="Hello world",
+            args=(),
+            exc_info=None,
         )
         output = formatter.format(record)
         assert "INFO" in output
@@ -181,8 +205,13 @@ class TestHumanReadableFormatter:
         set_request_id("abc-123")
         formatter = HumanReadableFormatter(use_colors=False)
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="test.py",
-            lineno=1, msg="test", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="test",
+            args=(),
+            exc_info=None,
         )
         output = formatter.format(record)
         assert "[abc-123]" in output
@@ -191,8 +220,13 @@ class TestHumanReadableFormatter:
     def test_colors_disabled(self):
         formatter = HumanReadableFormatter(use_colors=False)
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="test.py",
-            lineno=1, msg="test", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="test",
+            args=(),
+            exc_info=None,
         )
         output = formatter.format(record)
         assert "\033[" not in output  # No ANSI codes
@@ -200,8 +234,13 @@ class TestHumanReadableFormatter:
     def test_timestamp_format(self):
         formatter = HumanReadableFormatter(use_colors=False)
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="test.py",
-            lineno=1, msg="test", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="test",
+            args=(),
+            exc_info=None,
         )
         output = formatter.format(record)
         # Should have YYYY-MM-DD HH:MM:SS format
@@ -226,8 +265,14 @@ class TestRequestContextLogger:
 
 class TestGetLogConfig:
     def test_default_config(self, monkeypatch):
-        for key in ["LOG_LEVEL", "LOG_FORMAT", "LOG_FILE",
-                     "LOG_MAX_BYTES", "LOG_BACKUP_COUNT", "LOG_DISABLE_FILE"]:
+        for key in [
+            "LOG_LEVEL",
+            "LOG_FORMAT",
+            "LOG_FILE",
+            "LOG_MAX_BYTES",
+            "LOG_BACKUP_COUNT",
+            "LOG_DISABLE_FILE",
+        ]:
             monkeypatch.delenv(key, raising=False)
 
         config = get_log_config()
@@ -375,6 +420,7 @@ def client():
     """Create a Flask test client."""
     from integration.app import app
     from integration.ratelimit import get_counter
+
     get_counter().clear()
     app.config["TESTING"] = True
     with app.test_client() as c:

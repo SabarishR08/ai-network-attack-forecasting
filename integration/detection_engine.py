@@ -19,12 +19,13 @@ Usage:
     anomalies = engine.process_packet(packet_dict)
 """
 
-import json
 import logging
 import time
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta
-from typing import Any, Dict, List, Optional, Set, Tuple
+from datetime import datetime, timezone
+
+UTC = timezone.utc
+from typing import Dict, List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +33,28 @@ logger = logging.getLogger(__name__)
 # ── Constants ──────────────────────────────────────────────
 
 SUSPICIOUS_PORTS = {
-    21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP",
-    53: "DNS", 110: "POP3", 135: "MS-RPC", 139: "NetBIOS",
-    143: "IMAP", 445: "SMB", 993: "IMAPS", 995: "POP3S",
-    1433: "MSSQL", 1521: "Oracle", 3306: "MySQL", 3389: "RDP",
-    5432: "PostgreSQL", 5900: "VNC", 6379: "Redis",
-    8080: "HTTP-Proxy", 8443: "HTTPS-Alt", 27017: "MongoDB",
+    21: "FTP",
+    22: "SSH",
+    23: "Telnet",
+    25: "SMTP",
+    53: "DNS",
+    110: "POP3",
+    135: "MS-RPC",
+    139: "NetBIOS",
+    143: "IMAP",
+    445: "SMB",
+    993: "IMAPS",
+    995: "POP3S",
+    1433: "MSSQL",
+    1521: "Oracle",
+    3306: "MySQL",
+    3389: "RDP",
+    5432: "PostgreSQL",
+    5900: "VNC",
+    6379: "Redis",
+    8080: "HTTP-Proxy",
+    8443: "HTTPS-Alt",
+    27017: "MongoDB",
 }
 
 HIGH_RISK_PORTS = {22, 23, 3389, 5900, 3306, 5432, 6379, 27017, 1433, 445}
@@ -127,8 +144,8 @@ MITRE_MAP = {
 
 from integration.prevention import get_prevention
 
-
 # ── Per-IP State Tracker ───────────────────────────────────
+
 
 class PerIPState:
     """Sliding-window counters for a single source IP."""
@@ -146,10 +163,10 @@ class PerIPState:
         self.unique_dst_ips: Set[str] = set()
         self.payload_sizes: List[int] = []
         self.timestamps: List[float] = []
-        self.port_syn_count: Dict[int, int] = defaultdict(int)   # per-port SYN count
-        self.port_ack_count: Dict[int, int] = defaultdict(int)   # per-port ACK count
-        self.port_rst_count: Dict[int, int] = defaultdict(int)   # per-port RST count
-        self.half_open_ports: Set[int] = set()                   # SYN sent, no ACK received
+        self.port_syn_count: Dict[int, int] = defaultdict(int)  # per-port SYN count
+        self.port_ack_count: Dict[int, int] = defaultdict(int)  # per-port ACK count
+        self.port_rst_count: Dict[int, int] = defaultdict(int)  # per-port RST count
+        self.half_open_ports: Set[int] = set()  # SYN sent, no ACK received
 
     def add(self, pkt: Dict):
         """Record a packet, evicting expired entries."""
@@ -254,6 +271,7 @@ class PerIPState:
 
 # ── Detectors ──────────────────────────────────────────────
 
+
 class SYNFloodDetector:
     """Detect SYN flood attacks via rate, SYN/ACK ratio, and half-open connections."""
 
@@ -300,7 +318,9 @@ class SYNFloodDetector:
         if not reasons:
             return None
 
-        severity = "CRITICAL" if severity_score >= 6 else "HIGH" if severity_score >= 3 else "MEDIUM"
+        severity = (
+            "CRITICAL" if severity_score >= 6 else "HIGH" if severity_score >= 3 else "MEDIUM"
+        )
         confidence = min(0.70 + severity_score * 0.05, 0.99)
 
         return {
@@ -327,9 +347,9 @@ class PortScanDetector:
 
     # Thresholds
     MIN_UNIQUE_PORTS = 5
-    SYN_SCAN_SYN_ONLY_THRESHOLD = 3       # SYN with no ACK response
-    CONNECT_SCAN_THRESHOLD = 10            # full connect + RST/FIN
-    FIN_XMAS_NULL_THRESHOLD = 3            # stealth scan packets
+    SYN_SCAN_SYN_ONLY_THRESHOLD = 3  # SYN with no ACK response
+    CONNECT_SCAN_THRESHOLD = 10  # full connect + RST/FIN
+    FIN_XMAS_NULL_THRESHOLD = 3  # stealth scan packets
 
     def __init__(self, local_ip: str):
         self.local_ip = local_ip
@@ -344,7 +364,8 @@ class PortScanDetector:
 
         # --- SYN Scan (half-open scan / nmap -sS) ---
         syn_only_ports = [
-            p for p, c in state.port_syn_count.items()
+            p
+            for p, c in state.port_syn_count.items()
             if c > 0 and state.port_ack_count.get(p, 0) == 0
         ]
         if len(syn_only_ports) >= self.SYN_SCAN_SYN_ONLY_THRESHOLD:
@@ -357,14 +378,13 @@ class PortScanDetector:
 
         # --- Connect Scan (full TCP connect / nmap -sT) ---
         connect_ports = [
-            p for p in state.unique_dst_ports
+            p
+            for p in state.unique_dst_ports
             if state.port_ack_count.get(p, 0) > 0 and state.port_rst_count.get(p, 0) > 0
         ]
         if len(connect_ports) >= self.CONNECT_SCAN_THRESHOLD:
             scan_type = scan_type or "Connect Scan"
-            reasons.append(
-                f"{len(connect_ports)} ports completed full TCP connect then RST/FIN"
-            )
+            reasons.append(f"{len(connect_ports)} ports completed full TCP connect then RST/FIN")
             severity_score += 2
 
         # --- FIN / XMAS / NULL Scan (stealth scans) ---
@@ -380,7 +400,7 @@ class PortScanDetector:
                 scan_type = scan_type or "NULL Scan"
                 reasons.append(
                     f"{state.total_packets} packets with no standard TCP flags "
-                    f"({no_flag_ratio*100:.0f}% NULL packets)"
+                    f"({no_flag_ratio * 100:.0f}% NULL packets)"
                 )
                 severity_score += 3
 
@@ -394,9 +414,7 @@ class PortScanDetector:
         # --- Generic Port Sweep (fallback) ---
         if not scan_type and len(state.unique_dst_ports) >= self.MIN_UNIQUE_PORTS:
             scan_type = "Port Scan"
-            reasons.append(
-                f"{len(state.unique_dst_ports)} unique ports probed from single source"
-            )
+            reasons.append(f"{len(state.unique_dst_ports)} unique ports probed from single source")
             severity_score += 2
 
         if not scan_type:
@@ -408,7 +426,9 @@ class PortScanDetector:
             reasons.append(f"Targets include high-risk ports: {sorted(high_risk_hit)}")
             severity_score += 2
 
-        severity = "CRITICAL" if severity_score >= 7 else "HIGH" if severity_score >= 4 else "MEDIUM"
+        severity = (
+            "CRITICAL" if severity_score >= 7 else "HIGH" if severity_score >= 4 else "MEDIUM"
+        )
         confidence = min(0.80 + severity_score * 0.03, 0.99)
 
         return {
@@ -491,9 +511,7 @@ class BruteForceDetector:
                 severity_score += 2
 
             severity = (
-                "CRITICAL" if severity_score >= 7
-                else "HIGH" if severity_score >= 4
-                else "MEDIUM"
+                "CRITICAL" if severity_score >= 7 else "HIGH" if severity_score >= 4 else "MEDIUM"
             )
             confidence = min(0.75 + severity_score * 0.03, 0.99)
 
@@ -503,8 +521,7 @@ class BruteForceDetector:
             ]
             if is_distributed:
                 reasons.append(
-                    f"Distributed from {len(attackers)} unique source IPs: "
-                    f"{', '.join(src_ips[:5])}"
+                    f"Distributed from {len(attackers)} unique source IPs: {', '.join(src_ips[:5])}"
                 )
 
             anomaly = {
@@ -556,51 +573,55 @@ class FloodDetector:
         # UDP Flood heuristic: high packet rate with no TCP handshake
         if rate > self.udp_rate_threshold and non_tcp > 50:
             severity = "CRITICAL" if rate > self.udp_rate_threshold * 2 else "HIGH"
-            anomalies.append({
-                "anomaly_type": "UDP Flood",
-                "severity": severity,
-                "confidence": min(0.75 + (rate / self.udp_rate_threshold) * 0.05, 0.99),
-                "src_ip": src_ip,
-                "dst_ip": state.unique_dst_ips.pop() if state.unique_dst_ips else "",
-                "reasons": [
-                    f"High non-TCP packet rate: {rate:.0f}/s "
-                    f"({non_tcp} packets in {state.window}s window)"
-                ],
-                "metrics": {
-                    "non_tcp_packets": non_tcp,
-                    "rate_per_sec": round(rate, 1),
-                    "total_packets": state.total_packets,
-                    "window_sec": state.window,
-                },
-            })
-
-        # ICMP Flood: many packets with tiny payloads and no ports
-        if (not state.unique_dst_ports and state.total_packets > 20
-                and state.payload_mean < 100):
-            rate_icmp = state.total_packets / max(state.window, 1)
-            if rate_icmp > self.icmp_rate_threshold:
-                anomalies.append({
-                    "anomaly_type": "ICMP Flood",
-                    "severity": "HIGH",
-                    "confidence": min(0.70 + rate_icmp / self.icmp_rate_threshold * 0.05, 0.95),
+            anomalies.append(
+                {
+                    "anomaly_type": "UDP Flood",
+                    "severity": severity,
+                    "confidence": min(0.75 + (rate / self.udp_rate_threshold) * 0.05, 0.99),
                     "src_ip": src_ip,
                     "dst_ip": state.unique_dst_ips.pop() if state.unique_dst_ips else "",
                     "reasons": [
-                        f"ICMP-style traffic: {state.total_packets} no-port packets "
-                        f"with avg payload {state.payload_mean:.0f}B at {rate_icmp:.0f}/s"
+                        f"High non-TCP packet rate: {rate:.0f}/s "
+                        f"({non_tcp} packets in {state.window}s window)"
                     ],
                     "metrics": {
-                        "icmp_packets": state.total_packets,
-                        "rate_per_sec": round(rate_icmp, 1),
-                        "avg_payload": round(state.payload_mean, 1),
+                        "non_tcp_packets": non_tcp,
+                        "rate_per_sec": round(rate, 1),
+                        "total_packets": state.total_packets,
                         "window_sec": state.window,
                     },
-                })
+                }
+            )
+
+        # ICMP Flood: many packets with tiny payloads and no ports
+        if not state.unique_dst_ports and state.total_packets > 20 and state.payload_mean < 100:
+            rate_icmp = state.total_packets / max(state.window, 1)
+            if rate_icmp > self.icmp_rate_threshold:
+                anomalies.append(
+                    {
+                        "anomaly_type": "ICMP Flood",
+                        "severity": "HIGH",
+                        "confidence": min(0.70 + rate_icmp / self.icmp_rate_threshold * 0.05, 0.95),
+                        "src_ip": src_ip,
+                        "dst_ip": state.unique_dst_ips.pop() if state.unique_dst_ips else "",
+                        "reasons": [
+                            f"ICMP-style traffic: {state.total_packets} no-port packets "
+                            f"with avg payload {state.payload_mean:.0f}B at {rate_icmp:.0f}/s"
+                        ],
+                        "metrics": {
+                            "icmp_packets": state.total_packets,
+                            "rate_per_sec": round(rate_icmp, 1),
+                            "avg_payload": round(state.payload_mean, 1),
+                            "window_sec": state.window,
+                        },
+                    }
+                )
 
         return anomalies
 
 
 # ── Main Detection Engine ──────────────────────────────────
+
 
 class DetectionEngine:
     """
@@ -738,8 +759,7 @@ class DetectionEngine:
         """Evict expired alert history entries (call periodically)."""
         now = time.time()
         expired = [
-            aid for aid, ts in self._alert_history.items()
-            if (now - ts) > self.dedup_cooldown * 3
+            aid for aid, ts in self._alert_history.items() if (now - ts) > self.dedup_cooldown * 3
         ]
         for aid in expired:
             del self._alert_history[aid]

@@ -26,6 +26,7 @@ for p in [
 def _reset_rate_limiter():
     """Reset rate limiter state between tests to prevent cross-test leaks."""
     from integration.ratelimit import get_counter
+
     get_counter().clear()
     yield
     get_counter().clear()
@@ -35,6 +36,7 @@ def _reset_rate_limiter():
 def client():
     """Create a Flask test client available to all test modules."""
     from integration.app import app
+
     app.config["TESTING"] = True
     with app.test_client() as c:
         yield c

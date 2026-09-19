@@ -12,22 +12,22 @@ Covers:
 """
 
 import time
-import pytest
-from integration.detection_engine import (
-    DetectionEngine,
-    PerIPState,
-    SYNFloodDetector,
-    PortScanDetector,
-    BruteForceDetector,
-    FloodDetector,
-)
 
+from integration.detection_engine import (
+    BruteForceDetector,
+    DetectionEngine,
+    FloodDetector,
+    PerIPState,
+    PortScanDetector,
+    SYNFloodDetector,
+)
 
 # ── Helpers ─────────────────────────────────────────────────
 
 
-def _make_packet(src_ip="10.0.0.1", dst_ip="192.168.1.5", dst_port=80,
-                 flags="S", payload_size=0, protocol="TCP"):
+def _make_packet(
+    src_ip="10.0.0.1", dst_ip="192.168.1.5", dst_port=80, flags="S", payload_size=0, protocol="TCP"
+):
     """Create a minimal packet dict for testing."""
     return {
         "src_ip": src_ip,
@@ -40,32 +40,31 @@ def _make_packet(src_ip="10.0.0.1", dst_ip="192.168.1.5", dst_port=80,
     }
 
 
-def _make_syn_packets(src_ip="10.0.0.1", dst_ip="192.168.1.5", count=100,
-                      port=22):
+def _make_syn_packets(src_ip="10.0.0.1", dst_ip="192.168.1.5", count=100, port=22):
     """Generate a batch of SYN-only packets to a single port."""
-    return [_make_packet(src_ip=src_ip, dst_ip=dst_ip, dst_port=port,
-                         flags="S") for _ in range(count)]
+    return [
+        _make_packet(src_ip=src_ip, dst_ip=dst_ip, dst_port=port, flags="S") for _ in range(count)
+    ]
 
 
-def _make_port_scan_packets(src_ip="10.0.0.1", dst_ip="192.168.1.5",
-                            ports=None):
+def _make_port_scan_packets(src_ip="10.0.0.1", dst_ip="192.168.1.5", ports=None):
     """Generate packets across many ports (SYN scan pattern)."""
     if ports is None:
         ports = list(range(1, 20))  # 19 unique ports
-    return [_make_packet(src_ip=src_ip, dst_ip=dst_ip, dst_port=p,
-                         flags="S") for p in ports]
+    return [_make_packet(src_ip=src_ip, dst_ip=dst_ip, dst_port=p, flags="S") for p in ports]
 
 
-def _make_brute_force_packets(src_ip="10.0.0.1", dst_ip="192.168.1.5",
-                              port=22, count=15):
+def _make_brute_force_packets(src_ip="10.0.0.1", dst_ip="192.168.1.5", port=22, count=15):
     """Generate RST packets to same port (failed login attempts)."""
-    return [_make_packet(src_ip=src_ip, dst_ip=dst_ip, dst_port=port,
-                         flags="R") for _ in range(count)]
+    return [
+        _make_packet(src_ip=src_ip, dst_ip=dst_ip, dst_port=port, flags="R") for _ in range(count)
+    ]
 
 
 # ══════════════════════════════════════════════════════════════
 #  Per-IP State
 # ══════════════════════════════════════════════════════════════
+
 
 class TestPerIPState:
     """Test the sliding-window per-IP state tracker."""
@@ -120,6 +119,7 @@ class TestPerIPState:
 # ══════════════════════════════════════════════════════════════
 #  SYN Flood Detection
 # ══════════════════════════════════════════════════════════════
+
 
 class TestSYNFloodDetector:
     """Test SYN flood detection via rate, SYN/ACK ratio, and half-open."""
@@ -199,6 +199,7 @@ class TestSYNFloodDetector:
 #  Port Scan Detection
 # ══════════════════════════════════════════════════════════════
 
+
 class TestPortScanDetector:
     """Test port scan detection (SYN scan, connect scan, stealth scans)."""
 
@@ -264,6 +265,7 @@ class TestPortScanDetector:
 # ══════════════════════════════════════════════════════════════
 #  Brute Force Detection
 # ══════════════════════════════════════════════════════════════
+
 
 class TestBruteForceDetector:
     """Test brute-force and distributed brute-force detection."""
@@ -335,6 +337,7 @@ class TestBruteForceDetector:
 #  Flood Detection (UDP / ICMP)
 # ══════════════════════════════════════════════════════════════
 
+
 class TestFloodDetector:
     """Test UDP and ICMP flood detection."""
 
@@ -382,6 +385,7 @@ class TestFloodDetector:
 #  Detection Engine Orchestration
 # ══════════════════════════════════════════════════════════════
 
+
 class TestDetectionEngine:
     """Test the full DetectionEngine orchestration."""
 
@@ -400,17 +404,13 @@ class TestDetectionEngine:
         assert stats["total_packets_processed"] >= 1
 
     def test_skips_own_traffic(self):
-        self.engine.process_packet(
-            _make_packet(src_ip=self.local_ip)
-        )
+        self.engine.process_packet(_make_packet(src_ip=self.local_ip))
         assert self.engine.stats["tracked_ips"] == 0
 
     def test_detects_syn_flood_via_engine(self):
         # Send high-rate SYNs from one IP
         for _ in range(100):
-            self.engine.process_packet(
-                _make_packet(src_ip="10.0.0.1", flags="S")
-            )
+            self.engine.process_packet(_make_packet(src_ip="10.0.0.1", flags="S"))
         anomalies = self.engine.detect_all()
         syn_floods = [a for a in anomalies if a["anomaly_type"] == "SYN Flood"]
         assert len(syn_floods) >= 1
@@ -418,9 +418,7 @@ class TestDetectionEngine:
 
     def test_detects_port_scan_via_engine(self):
         for port in range(1, 15):
-            self.engine.process_packet(
-                _make_packet(src_ip="10.0.0.2", dst_port=port, flags="S")
-            )
+            self.engine.process_packet(_make_packet(src_ip="10.0.0.2", dst_port=port, flags="S"))
         anomalies = self.engine.detect_all()
         scans = [a for a in anomalies if "Scan" in a["anomaly_type"]]
         assert len(scans) >= 1
@@ -428,9 +426,7 @@ class TestDetectionEngine:
     def test_deduplication(self):
         # Send packets that trigger detection
         for _ in range(100):
-            self.engine.process_packet(
-                _make_packet(src_ip="10.0.0.3", flags="S")
-            )
+            self.engine.process_packet(_make_packet(src_ip="10.0.0.3", flags="S"))
         first = self.engine.detect_all()
         # Second call within cooldown should deduplicate
         second = self.engine.detect_all()
@@ -439,9 +435,7 @@ class TestDetectionEngine:
 
     def test_prevention_attached(self):
         for _ in range(100):
-            self.engine.process_packet(
-                _make_packet(src_ip="10.0.0.4", flags="S")
-            )
+            self.engine.process_packet(_make_packet(src_ip="10.0.0.4", flags="S"))
         anomalies = self.engine.detect_all()
         for a in anomalies:
             assert "prevention" in a
@@ -450,9 +444,7 @@ class TestDetectionEngine:
 
     def test_mitre_mapping_attached(self):
         for _ in range(100):
-            self.engine.process_packet(
-                _make_packet(src_ip="10.0.0.5", flags="S")
-            )
+            self.engine.process_packet(_make_packet(src_ip="10.0.0.5", flags="S"))
         anomalies = self.engine.detect_all()
         for a in anomalies:
             assert "mitre" in a
@@ -460,10 +452,7 @@ class TestDetectionEngine:
 
     def test_stats_tracking(self):
         for _ in range(10):
-            self.engine.process_packet(
-                _make_packet(src_ip="10.0.0.6")
-            )
-        anomalies = self.engine.detect_all()
+            self.engine.process_packet(_make_packet(src_ip="10.0.0.6"))
         stats = self.engine.stats
         assert stats["total_packets_processed"] == 10
 

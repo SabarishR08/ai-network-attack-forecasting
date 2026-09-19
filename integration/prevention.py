@@ -29,13 +29,13 @@ Usage:
 
 import json
 import logging
-import os
 import platform
 import subprocess
-import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -45,18 +45,37 @@ BLOCKLIST_FILE = PROJECT_ROOT / "data" / "blocklist.json"
 # ── Service & Port Intelligence ────────────────────────────
 
 SUSPICIOUS_PORTS = {
-    21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP",
-    53: "DNS", 80: "HTTP", 110: "POP3", 135: "MS-RPC",
-    139: "NetBIOS", 143: "IMAP", 443: "HTTPS", 445: "SMB",
-    993: "IMAPS", 995: "POP3S", 1433: "MSSQL", 1521: "Oracle",
-    3306: "MySQL", 3389: "RDP", 5432: "PostgreSQL", 5900: "VNC",
-    6379: "Redis", 8080: "HTTP-Proxy", 8443: "HTTPS-Alt", 27017: "MongoDB",
+    21: "FTP",
+    22: "SSH",
+    23: "Telnet",
+    25: "SMTP",
+    53: "DNS",
+    80: "HTTP",
+    110: "POP3",
+    135: "MS-RPC",
+    139: "NetBIOS",
+    143: "IMAP",
+    443: "HTTPS",
+    445: "SMB",
+    993: "IMAPS",
+    995: "POP3S",
+    1433: "MSSQL",
+    1521: "Oracle",
+    3306: "MySQL",
+    3389: "RDP",
+    5432: "PostgreSQL",
+    5900: "VNC",
+    6379: "Redis",
+    8080: "HTTP-Proxy",
+    8443: "HTTPS-Alt",
+    27017: "MongoDB",
 }
 
 HIGH_RISK_PORTS = {22, 23, 3389, 5900, 3306, 5432, 6379, 27017, 1433, 445}
 
 
 # ── OS Detection ───────────────────────────────────────────
+
 
 def detect_os() -> str:
     """Detect the host operating system."""
@@ -78,9 +97,7 @@ def detect_firewall_backend() -> str:
         # Prefer ufw > nftables > iptables
         for cmd in ("ufw", "nft", "iptables"):
             try:
-                subprocess.run(
-                    ["which", cmd], capture_output=True, timeout=5
-                )
+                subprocess.run(["which", cmd], capture_output=True, timeout=5)
                 return cmd
             except Exception:
                 continue
@@ -96,6 +113,7 @@ def detect_firewall_backend() -> str:
 
 
 # ── Recommendation Data Classes ────────────────────────────
+
 
 class PreventionRecommendation:
     """A structured prevention recommendation with tiered actions."""
@@ -116,9 +134,9 @@ class PreventionRecommendation:
         self.timestamp = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
         # Tiered recommendations
-        self.immediate: List[str] = []    # Block attacker NOW
-        self.hardening: List[str] = []    # System hardening steps
-        self.monitoring: List[str] = []   # Ongoing monitoring
+        self.immediate: List[str] = []  # Block attacker NOW
+        self.hardening: List[str] = []  # System hardening steps
+        self.monitoring: List[str] = []  # Ongoing monitoring
 
         # Generated rules for each backend
         self.iptables_rules: List[str] = []
@@ -153,50 +171,60 @@ class PreventionRecommendation:
     # ── Flood (SYN / UDP / ICMP) ───────────────────────────
 
     def _gen_flood(self):
-        service = SUSPICIOUS_PORTS.get(self.dst_port, "Unknown")
-        self.immediate.extend([
-            f"DROP all traffic from attacker IP {self.src_ip}",
-            f"Apply SYN rate-limiting: max 50 SYNs/sec per source",
-            "Enable SYN cookies in kernel",
-        ])
-        self.hardening.extend([
-            "Enable SYN cookies: sysctl -w net.ipv4.tcp_syncookies=1",
-            "Reduce SYN-ACK retries: sysctl -w net.ipv4.tcp_synack_retries=2",
-            "Set tcp_max_syn_backlog: sysctl -w net.ipv4.tcp_max_syn_backlog=4096",
-            "Enable tcp_synack_retries: sysctl -w net.ipv4.tcp_synack_retries=1",
-            "Consider deploying fail2ban or CrowdSec for automated blocking",
-            "Enable connection tracking: modprobe nf_conntrack",
-            "Set conntrack table size: sysctl -w net.netfilter.nf_conntrack_max=262144",
-        ])
-        self.monitoring.extend([
-            "Monitor for sustained flood patterns over 5+ minutes",
-            "Watch for packet rate exceeding 1000/sec from any single IP",
-            "Set up alerting for bandwidth saturation (>80% link capacity)",
-            "Consider upstream DDoS protection (Cloudflare, AWS Shield)",
-        ])
+        self.immediate.extend(
+            [
+                f"DROP all traffic from attacker IP {self.src_ip}",
+                "Apply SYN rate-limiting: max 50 SYNs/sec per source",
+                "Enable SYN cookies in kernel",
+            ]
+        )
+        self.hardening.extend(
+            [
+                "Enable SYN cookies: sysctl -w net.ipv4.tcp_syncookies=1",
+                "Reduce SYN-ACK retries: sysctl -w net.ipv4.tcp_synack_retries=2",
+                "Set tcp_max_syn_backlog: sysctl -w net.ipv4.tcp_max_syn_backlog=4096",
+                "Enable tcp_synack_retries: sysctl -w net.ipv4.tcp_synack_retries=1",
+                "Consider deploying fail2ban or CrowdSec for automated blocking",
+                "Enable connection tracking: modprobe nf_conntrack",
+                "Set conntrack table size: sysctl -w net.netfilter.nf_conntrack_max=262144",
+            ]
+        )
+        self.monitoring.extend(
+            [
+                "Monitor for sustained flood patterns over 5+ minutes",
+                "Watch for packet rate exceeding 1000/sec from any single IP",
+                "Set up alerting for bandwidth saturation (>80% link capacity)",
+                "Consider upstream DDoS protection (Cloudflare, AWS Shield)",
+            ]
+        )
 
     # ── Port Scans ─────────────────────────────────────────
 
     def _gen_scan(self):
-        service = SUSPICIOUS_PORTS.get(self.dst_port, "Unknown")
-        self.immediate.extend([
-            f"BLOCK all traffic from {self.src_ip}",
-            "Drop invalid/malformed packets at firewall",
-            "Enable connection tracking to detect half-open scans",
-        ])
-        self.hardening.extend([
-            "Drop invalid packets: iptables -A INPUT -m conntrack --ctstate INVALID -j DROP",
-            "Enable SYN cookies: sysctl -w net.ipv4.tcp_syncookies=1",
-            "Restrict exposed services — close unused ports",
-            "Deploy fail2ban with sshd jail for ongoing protection",
-            "Enable port knocking for sensitive services (SSH, RDP)",
-            "Use allowlist-based firewall (default deny, explicit allow)",
-        ])
-        self.monitoring.extend([
-            "Log all connection attempts to closed ports",
-            "Alert on >5 unique ports probed from single IP in 10s",
-            "Monitor for scan-then-exploit patterns",
-        ])
+        self.immediate.extend(
+            [
+                f"BLOCK all traffic from {self.src_ip}",
+                "Drop invalid/malformed packets at firewall",
+                "Enable connection tracking to detect half-open scans",
+            ]
+        )
+        self.hardening.extend(
+            [
+                "Drop invalid packets: iptables -A INPUT -m conntrack --ctstate INVALID -j DROP",
+                "Enable SYN cookies: sysctl -w net.ipv4.tcp_syncookies=1",
+                "Restrict exposed services — close unused ports",
+                "Deploy fail2ban with sshd jail for ongoing protection",
+                "Enable port knocking for sensitive services (SSH, RDP)",
+                "Use allowlist-based firewall (default deny, explicit allow)",
+            ]
+        )
+        self.monitoring.extend(
+            [
+                "Log all connection attempts to closed ports",
+                "Alert on >5 unique ports probed from single IP in 10s",
+                "Monitor for scan-then-exploit patterns",
+            ]
+        )
 
         if self.dst_port and self.dst_port in HIGH_RISK_PORTS:
             svc = SUSPICIOUS_PORTS.get(self.dst_port, "unknown")
@@ -209,26 +237,32 @@ class PreventionRecommendation:
 
     def _gen_brute_force(self):
         service = SUSPICIOUS_PORTS.get(self.dst_port, "Unknown")
-        self.immediate.extend([
-            f"BLOCK {self.src_ip} immediately",
-            f"Rate-limit connections to port {self.dst_port} ({service})",
-            "Consider temporarily disabling the targeted service if under active attack",
-        ])
-        self.hardening.extend([
-            "Switch to SSH key-based authentication (disable password auth)",
-            "Install fail2ban: apt install fail2ban && systemctl enable fail2ban",
-            "Configure fail2ban jail for the targeted service",
-            "Rate-limit auth endpoints: max 5 attempts per IP per minute",
-            "Enable account lockout after 3 failed attempts (15-minute lockout)",
-            "Deploy multi-factor authentication (MFA) for all remote access",
-            "Use strong password policies (12+ chars, complexity requirements)",
-        ])
-        self.monitoring.extend([
-            "Alert on >10 failed auth attempts per IP per minute",
-            "Monitor for distributed brute force (3+ IPs targeting same service)",
-            "Log all authentication events for forensic analysis",
-            "Set up real-time alerting for successful logins after failed attempts",
-        ])
+        self.immediate.extend(
+            [
+                f"BLOCK {self.src_ip} immediately",
+                f"Rate-limit connections to port {self.dst_port} ({service})",
+                "Consider temporarily disabling the targeted service if under active attack",
+            ]
+        )
+        self.hardening.extend(
+            [
+                "Switch to SSH key-based authentication (disable password auth)",
+                "Install fail2ban: apt install fail2ban && systemctl enable fail2ban",
+                "Configure fail2ban jail for the targeted service",
+                "Rate-limit auth endpoints: max 5 attempts per IP per minute",
+                "Enable account lockout after 3 failed attempts (15-minute lockout)",
+                "Deploy multi-factor authentication (MFA) for all remote access",
+                "Use strong password policies (12+ chars, complexity requirements)",
+            ]
+        )
+        self.monitoring.extend(
+            [
+                "Alert on >10 failed auth attempts per IP per minute",
+                "Monitor for distributed brute force (3+ IPs targeting same service)",
+                "Log all authentication events for forensic analysis",
+                "Set up real-time alerting for successful logins after failed attempts",
+            ]
+        )
 
         if self.dst_port in (22, 3389, 5900):
             svc = SUSPICIOUS_PORTS.get(self.dst_port, "unknown")
@@ -240,37 +274,49 @@ class PreventionRecommendation:
     # ── Suspicious Payload ─────────────────────────────────
 
     def _gen_payload(self):
-        self.immediate.extend([
-            f"BLOCK {self.src_ip}",
-            "Inspect payload contents for command injection patterns",
-            "Enable deep packet inspection if available",
-        ])
-        self.hardening.extend([
-            "Update WAF rules to block matching payload signatures",
-            "Enable application-level input validation",
-            "Deploy IDS signatures for known attack payloads",
-            "Keep all software patched and up to date",
-        ])
-        self.monitoring.extend([
-            "Capture full payloads for forensic analysis",
-            "Set up signature-based alerting in IDS/IPS",
-        ])
+        self.immediate.extend(
+            [
+                f"BLOCK {self.src_ip}",
+                "Inspect payload contents for command injection patterns",
+                "Enable deep packet inspection if available",
+            ]
+        )
+        self.hardening.extend(
+            [
+                "Update WAF rules to block matching payload signatures",
+                "Enable application-level input validation",
+                "Deploy IDS signatures for known attack payloads",
+                "Keep all software patched and up to date",
+            ]
+        )
+        self.monitoring.extend(
+            [
+                "Capture full payloads for forensic analysis",
+                "Set up signature-based alerting in IDS/IPS",
+            ]
+        )
 
     # ── Generic Fallback ───────────────────────────────────
 
     def _gen_generic(self):
-        self.immediate.extend([
-            f"BLOCK {self.src_ip}",
-            "Review the detected traffic pattern manually",
-        ])
-        self.hardening.extend([
-            "Enable connection tracking and stateful firewall rules",
-            "Apply default-deny inbound policy",
-            "Keep firewall rules updated and audited regularly",
-        ])
-        self.monitoring.extend([
-            "Continue monitoring the source IP for escalation",
-        ])
+        self.immediate.extend(
+            [
+                f"BLOCK {self.src_ip}",
+                "Review the detected traffic pattern manually",
+            ]
+        )
+        self.hardening.extend(
+            [
+                "Enable connection tracking and stateful firewall rules",
+                "Apply default-deny inbound policy",
+                "Keep firewall rules updated and audited regularly",
+            ]
+        )
+        self.monitoring.extend(
+            [
+                "Continue monitoring the source IP for escalation",
+            ]
+        )
 
     # ── Backend-Specific Rule Generation ───────────────────
 
@@ -292,8 +338,7 @@ class PreventionRecommendation:
 
         if self.anomaly_type in ("SYN Flood", "UDP Flood", "ICMP Flood"):
             rules.append(
-                "iptables -A INPUT -p tcp --syn -m limit "
-                "--limit 50/s --limit-burst 100 -j ACCEPT"
+                "iptables -A INPUT -p tcp --syn -m limit --limit 50/s --limit-burst 100 -j ACCEPT"
             )
             rules.append("iptables -A INPUT -p tcp --syn -j DROP")
             rules.append(
@@ -304,8 +349,7 @@ class PreventionRecommendation:
 
         if self.anomaly_type in ("Brute Force", "Distributed Brute Force"):
             rules.append(
-                f"iptables -A INPUT -p tcp --dport {self.dst_port} "
-                "-m recent --set --name BRUTE"
+                f"iptables -A INPUT -p tcp --dport {self.dst_port} -m recent --set --name BRUTE"
             )
             rules.append(
                 f"iptables -A INPUT -p tcp --dport {self.dst_port} "
@@ -313,9 +357,7 @@ class PreventionRecommendation:
                 "--name BRUTE -j DROP"
             )
 
-        rules.append(
-            "iptables -A INPUT -m conntrack --ctstate INVALID -j DROP"
-        )
+        rules.append("iptables -A INPUT -m conntrack --ctstate INVALID -j DROP")
 
         self.iptables_rules = rules
 
@@ -329,9 +371,7 @@ class PreventionRecommendation:
                 "add rule inet filter input tcp flags syn meter syn-flood "
                 "{ ip saddr limit rate 50/second burst 100 packets } accept"
             )
-            rules.append(
-                "add rule inet filter input tcp flags syn drop"
-            )
+            rules.append("add rule inet filter input tcp flags syn drop")
 
         self.nftables_rules = rules
 
@@ -366,15 +406,14 @@ class PreventionRecommendation:
         """Generate Windows netsh commands."""
         commands = []
         commands.append(
-            f'netsh advfirewall firewall add rule '
+            f"netsh advfirewall firewall add rule "
             f'name="Block {self.src_ip}" '
-            f'dir=in action=block remoteip={self.src_ip}'
+            f"dir=in action=block remoteip={self.src_ip}"
         )
 
         if self.anomaly_type in ("SYN Flood", "UDP Flood"):
             commands.append(
-                'netsh advfirewall set allprofiles firewallpolicy '
-                'blockinbound,allowoutbound'
+                "netsh advfirewall set allprofiles firewallpolicy blockinbound,allowoutbound"
             )
 
         self.netsh_commands = commands
@@ -408,24 +447,24 @@ class PreventionRecommendation:
     def summary(self) -> str:
         """Human-readable summary for console output."""
         lines = []
-        lines.append(f"\n{'='*60}")
+        lines.append(f"\n{'=' * 60}")
         lines.append(f"  PREVENTION: {self.anomaly_type}")
-        lines.append(f"{'='*60}")
+        lines.append(f"{'=' * 60}")
         lines.append(f"  Attacker:    {self.src_ip}")
         lines.append(f"  Target Port: {self.dst_port or 'N/A'}")
         lines.append(f"  Severity:    {self.severity}")
         lines.append(f"  OS:          {self.os_name}")
         lines.append(f"  Backend:     {self.backend}")
 
-        lines.append(f"\n  [!!!] IMMEDIATE ACTIONS:")
+        lines.append("\n  [!!!] IMMEDIATE ACTIONS:")
         for i, rec in enumerate(self.immediate, 1):
             lines.append(f"    {i}. {rec}")
 
-        lines.append(f"\n  [~] HARDENING:")
+        lines.append("\n  [~] HARDENING:")
         for i, rec in enumerate(self.hardening, 1):
             lines.append(f"    {i}. {rec}")
 
-        lines.append(f"\n  [i] MONITORING:")
+        lines.append("\n  [i] MONITORING:")
         for i, rec in enumerate(self.monitoring, 1):
             lines.append(f"    {i}. {rec}")
 
@@ -443,11 +482,12 @@ class PreventionRecommendation:
             for rule in rules:
                 lines.append(f"    $ {rule}")
 
-        lines.append(f"{'='*60}\n")
+        lines.append(f"{'=' * 60}\n")
         return "\n".join(lines)
 
 
 # ── Prevention Engine ──────────────────────────────────────
+
 
 class PreventionEngine:
     """
@@ -511,9 +551,7 @@ class PreventionEngine:
             return {"status": "skipped", "reason": "Cannot block loopback"}
 
         # Check if already blocked
-        already_blocked = any(
-            entry.get("ip") == src_ip for entry in self._blocklist
-        )
+        already_blocked = any(entry.get("ip") == src_ip for entry in self._blocklist)
         if already_blocked:
             return {"status": "already_blocked", "ip": src_ip}
 
@@ -541,8 +579,11 @@ class PreventionEngine:
                 for cmd in commands:
                     logger.info(f"Executing: {cmd}")
                     proc = subprocess.run(
-                        cmd, shell=True, capture_output=True,
-                        text=True, timeout=15,
+                        cmd,
+                        shell=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=15,
                     )
                     if proc.returncode != 0:
                         result["status"] = "error"
@@ -561,14 +602,16 @@ class PreventionEngine:
                 result["error"] = str(e)
 
         # Add to blocklist regardless
-        self._blocklist.append({
-            "ip": src_ip,
-            "anomaly_type": anomaly.get("anomaly_type", ""),
-            "severity": anomaly.get("severity", ""),
-            "timestamp": datetime.now(UTC).isoformat(),
-            "backend": self.backend,
-            "applied": result["status"] == "blocked",
-        })
+        self._blocklist.append(
+            {
+                "ip": src_ip,
+                "anomaly_type": anomaly.get("anomaly_type", ""),
+                "severity": anomaly.get("severity", ""),
+                "timestamp": datetime.now(UTC).isoformat(),
+                "backend": self.backend,
+                "applied": result["status"] == "blocked",
+            }
+        )
         self._save_blocklist()
 
         return result
@@ -588,9 +631,9 @@ class PreventionEngine:
             return [f"echo 'block in from {src_ip} to any' | pfctl -ef -"]
         elif self.backend == "netsh":
             return [
-                f'netsh advfirewall firewall add rule '
+                f"netsh advfirewall firewall add rule "
                 f'name="IDS-Block {src_ip}" '
-                f'dir=in action=block remoteip={src_ip}'
+                f"dir=in action=block remoteip={src_ip}"
             ]
         else:
             return [f"# Unknown backend — manual block needed for {src_ip}"]
@@ -687,6 +730,7 @@ class PreventionEngine:
 
 # ── Legacy compatibility: replace get_prevention() ─────────
 
+
 def get_prevention(anomaly_type: str, src_ip: str, dst_port: int = 0) -> List[str]:
     """
     Generate prevention recommendations (legacy API).
@@ -721,6 +765,7 @@ def get_prevention(anomaly_type: str, src_ip: str, dst_port: int = 0) -> List[st
 
 
 # ── CLI Entry Point ────────────────────────────────────────
+
 
 def main():
     """CLI for testing the prevention engine."""
@@ -765,8 +810,10 @@ def main():
 
     # Show blocklist stats
     stats = engine.stats()
-    print(f"\nBlocklist: {stats['total_blocked']} IPs "
-          f"({stats['applied']} applied, {stats['pending']} pending)")
+    print(
+        f"\nBlocklist: {stats['total_blocked']} IPs "
+        f"({stats['applied']} applied, {stats['pending']} pending)"
+    )
 
 
 if __name__ == "__main__":

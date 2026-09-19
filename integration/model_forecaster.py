@@ -12,17 +12,15 @@ Feature flag: ENABLE_FORECASTING_MODEL in config.py
 
 import json
 import logging
-import os
 import pickle
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import (
     accuracy_score,
-    classification_report,
     f1_score,
     precision_score,
     recall_score,
@@ -31,7 +29,6 @@ from sklearn.metrics import (
 from sklearn.model_selection import train_test_split
 
 from .config import (
-    DATA_DIR,
     ENABLE_FORECASTING_MODEL,
     ESCALATION_THRESHOLD,
     FORECAST_MODEL_PATH,
@@ -98,9 +95,7 @@ class EscalationForecaster:
         unique_labels = np.unique(labels)
         if len(unique_labels) < 2:
             logger.warning(f"Only one class present ({unique_labels[0]}). Using dummy model.")
-            self.model = GradientBoostingClassifier(
-                n_estimators=50, max_depth=3, random_state=42
-            )
+            self.model = GradientBoostingClassifier(n_estimators=50, max_depth=3, random_state=42)
             # Create synthetic minority samples to allow training
             self.is_trained = True
             return {
@@ -125,7 +120,11 @@ class EscalationForecaster:
 
         # Evaluate
         y_pred = self.model.predict(X_val)
-        y_proba = self.model.predict_proba(X_val)[:, 1] if len(np.unique(y_val)) > 1 else np.zeros(len(y_val))
+        y_proba = (
+            self.model.predict_proba(X_val)[:, 1]
+            if len(np.unique(y_val)) > 1
+            else np.zeros(len(y_val))
+        )
 
         metrics = {
             "status": "trained",
@@ -273,8 +272,7 @@ def run_forecasting_pipeline(
 
     escalated_count = sum(1 for f in predicted if f.get("escalation_predicted"))
     logger.info(
-        f"Forecast complete: {len(predicted)} windows, "
-        f"{escalated_count} predicted to escalate"
+        f"Forecast complete: {len(predicted)} windows, {escalated_count} predicted to escalate"
     )
 
     # Sanitize metrics for JSON serialisation
@@ -283,7 +281,7 @@ def run_forecasting_pipeline(
             return {k: _sanitize(v) for k, v in obj.items()}
         if isinstance(obj, (list, tuple)):
             return [_sanitize(v) for v in obj]
-        if hasattr(obj, "item"):          # numpy scalar
+        if hasattr(obj, "item"):  # numpy scalar
             return obj.item()
         if isinstance(obj, bool):
             return bool(obj)

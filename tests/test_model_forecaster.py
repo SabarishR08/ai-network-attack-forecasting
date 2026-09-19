@@ -1,14 +1,11 @@
 """Tests for integration.model_forecaster module."""
 
-import json
-from pathlib import Path
-
 import numpy as np
 import pytest
 
 from integration.model_forecaster import (
-    EscalationForecaster,
     FEATURE_COLUMNS,
+    EscalationForecaster,
 )
 
 
@@ -46,7 +43,7 @@ def minimal_features():
             "src_ip": "192.168.1.1",
             "dst_ip": "10.0.0.1",
             "window_start": f"2024-01-15T10:00:{i:02d}",
-            "window_end": f"2024-01-15T10:00:{i+10:02d}",
+            "window_end": f"2024-01-15T10:00:{i + 10:02d}",
             "total_packets": 10,
             "port_diversity": 3,
             "connection_rate": 1.0,

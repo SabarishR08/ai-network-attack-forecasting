@@ -14,8 +14,9 @@ import json
 import os
 import random
 import sys
-import time
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent
@@ -72,7 +73,6 @@ def gen_timestamp(offset_sec=0):
 def generate_packets(n=500):
     """Generate realistic network packets with mixed attack traffic."""
     packets = []
-    now = time.time()
 
     for i in range(n):
         # 70% normal, 30% attack
@@ -193,7 +193,6 @@ def generate_anomalies(packets):
 def generate_features(anomalies):
     """Generate forecast features from anomalies."""
     features = []
-    now = datetime.now(UTC)
 
     for i, a in enumerate(anomalies):
         prob = a["confidence"] * random.uniform(0.7, 1.1)
@@ -261,10 +260,11 @@ def main():
 
     n = 50 if args.light else args.packets
 
-    import io, sys as _sys
+    import io
+    import sys as _sys
     _sys.stdout = io.TextIOWrapper(_sys.stdout.buffer, encoding='utf-8')
     print(f"\n{'='*60}")
-    print(f"  SIH26153 - Attack Simulation")
+    print("  SIH26153 - Attack Simulation")
     print(f"{'='*60}\n")
 
     # Step 1: Generate packets
@@ -277,7 +277,7 @@ def main():
     print(f"  [.]  {len(packets)-attack_count} normal packets")
 
     # Step 2: Detect anomalies
-    print(f"\nRunning anomaly detection...")
+    print("\nRunning anomaly detection...")
     anomalies = generate_anomalies(packets)
     save_jsonl(anomalies, ANOMALIES_FILE)
     by_type = {}
@@ -291,7 +291,7 @@ def main():
     print(f"  Severity: {by_sev}")
 
     # Step 3: Forecast features
-    print(f"\nGenerating forecast features...")
+    print("\nGenerating forecast features...")
     features = generate_features(anomalies)
     save_jsonl(features, FEATURES_FILE)
     escalated = sum(1 for f in features if f["escalation_predicted"])
@@ -299,7 +299,7 @@ def main():
     print(f"  [!]  {escalated} escalation predictions ({escalated/max(len(features),1)*100:.0f}%)")
 
     # Step 4: Kill chain
-    print(f"\nBuilding kill chain incidents...")
+    print("\nBuilding kill chain incidents...")
     incidents = generate_killchain(anomalies)
     save_jsonl(incidents, KILLCHAIN_FILE)
     stages = {}
@@ -312,7 +312,7 @@ def main():
 
     # Summary
     print(f"\n{'='*60}")
-    print(f"  Data files generated:")
+    print("  Data files generated:")
     print(f"     {PACKETS_FILE}")
     print(f"     {ANOMALIES_FILE}")
     print(f"     {FEATURES_FILE}")

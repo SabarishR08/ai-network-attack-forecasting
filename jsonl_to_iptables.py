@@ -23,12 +23,13 @@ Note: On Windows, install Npcap first: https://npcap.com/#download
 
 import argparse
 import json
-import os
 import platform
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List
 
 PROJECT_ROOT = Path(__file__).parent
 DEFAULT_ANOMALIES = PROJECT_ROOT / "data" / "anomalies.jsonl"
@@ -369,7 +370,7 @@ Examples:
         all_output.append(output)
     else:
         all_output.append("#!/bin/bash")
-        all_output.append(f"# SIH26153 NetWatch -- Firewall Rules")
+        all_output.append("# SIH26153 NetWatch -- Firewall Rules")
         all_output.append(f"# Generated: {datetime.now(UTC).isoformat()}")
         all_output.append(f"# Source: {args.input}")
         all_output.append("")
@@ -417,7 +418,7 @@ Examples:
 
     # Summary
     print(f"\n{'='*50}")
-    print(f"  Summary")
+    print("  Summary")
     print(f"{'='*50}")
     print(f"  Anomalies processed: {len(anomalies)}")
     print(f"  IPs to block:        {len(ip_data)}")

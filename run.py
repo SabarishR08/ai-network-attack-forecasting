@@ -40,7 +40,6 @@ Note: On Windows, install Npcap first: https://npcap.com/#download
 
 import argparse
 import json
-import logging
 import os
 import platform
 import sys
@@ -186,8 +185,9 @@ def main():
 
     # Continuous monitoring mode — runs forever until Ctrl+C
     if args.monitor:
-        from integration.live_processor import LiveProcessor
         import time
+
+        from integration.live_processor import LiveProcessor
 
         processor = LiveProcessor(
             interface=args.live_interface,

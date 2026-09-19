@@ -1,11 +1,8 @@
 """Tests for integration.app Flask application."""
 
 import json
-from pathlib import Path
 
 import pytest
-
-from integration.app import app
 
 
 @pytest.fixture
@@ -248,6 +245,7 @@ class TestHelperFunctions:
 
     def test_severity_color(self, client):
         from integration.app import _severity_color
+
         assert _severity_color("CRITICAL") == "#ef4444"
         assert _severity_color("HIGH") == "#f97316"
         assert _severity_color("MEDIUM") == "#eab308"
@@ -256,22 +254,25 @@ class TestHelperFunctions:
 
     def test_load_jsonl_valid(self, tmp_path):
         from integration.app import _load_jsonl
+
         data_file = tmp_path / "test.jsonl"
         with open(data_file, "w") as f:
             f.write('{"key": "value1"}\n')
             f.write('{"key": "value2"}\n')
-            f.write('\n')  # empty line
-            f.write('invalid json\n')
+            f.write("\n")  # empty line
+            f.write("invalid json\n")
         result = _load_jsonl(data_file)
         assert len(result) == 2
 
     def test_load_jsonl_nonexistent(self, tmp_path):
         from integration.app import _load_jsonl
+
         result = _load_jsonl(tmp_path / "nonexistent.jsonl")
         assert result == []
 
     def test_load_json_valid(self, tmp_path):
         from integration.app import _load_json
+
         data_file = tmp_path / "test.json"
         with open(data_file, "w") as f:
             json.dump({"key": "value"}, f)
@@ -280,5 +281,6 @@ class TestHelperFunctions:
 
     def test_load_json_nonexistent(self, tmp_path):
         from integration.app import _load_json
+
         result = _load_json(tmp_path / "nonexistent.json")
         assert result == []

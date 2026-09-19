@@ -1,8 +1,7 @@
 """Tests for integration.forecast_features module."""
 
 import json
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 
 import pytest
 
@@ -149,7 +148,9 @@ class TestForecastFeatureExtractor:
             "payload_size_max",
         }
         for feat in features:
-            assert required_keys.issubset(feat.keys()), f"Missing keys: {required_keys - feat.keys()}"
+            assert required_keys.issubset(feat.keys()), (
+                f"Missing keys: {required_keys - feat.keys()}"
+            )
 
     def test_extract_features_empty_when_no_packets(self, tmp_path):
         extractor = ForecastFeatureExtractor(
@@ -168,7 +169,7 @@ class TestForecastFeatureExtractor:
         extractor.save_features(str(output))
         assert output.exists()
         with open(output) as f:
-            lines = [l.strip() for l in f if l.strip()]
+            lines = [line.strip() for line in f if line.strip()]
         assert len(lines) > 0
         # Each line should be valid JSON
         for line in lines:
@@ -232,12 +233,14 @@ class TestParseTs:
 
     def test_valid_iso_timestamp(self):
         from integration.forecast_features import _parse_ts
+
         result = _parse_ts("2024-01-15T10:00:00")
         assert isinstance(result, datetime)
         assert result.year == 2024
 
     def test_invalid_timestamp_returns_now(self):
         from integration.forecast_features import _parse_ts
+
         result = _parse_ts("not-a-timestamp")
         assert isinstance(result, datetime)
         # Should be close to now

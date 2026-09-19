@@ -8,12 +8,11 @@ Provides reusable validators that:
 - Return consistent error responses via Flask's jsonify
 """
 
-import re
 import html
-from typing import Any, List, Optional, Tuple
+import re
+from typing import Any, Optional, Tuple
 
 from flask import jsonify
-
 
 # ── Constants ────────────────────────────────────────────────
 
@@ -88,8 +87,7 @@ def validate_severity(value: str) -> Tuple[str, Optional[str]]:
 
     if normalized not in ALLOWED_SEVERITIES:
         return "", (
-            f"Invalid severity: {value!r}. "
-            f"Allowed values: {', '.join(sorted(ALLOWED_SEVERITIES))}"
+            f"Invalid severity: {value!r}. Allowed values: {', '.join(sorted(ALLOWED_SEVERITIES))}"
         )
 
     return normalized, None
@@ -161,11 +159,13 @@ def sanitize_ip(value: str) -> Tuple[str, Optional[str]]:
 
 def error_response(message: str, status_code: int = 400):
     """Create a consistent JSON error response."""
-    return jsonify({
-        "error": True,
-        "message": sanitize_string(message),
-        "status": status_code,
-    }), status_code
+    return jsonify(
+        {
+            "error": True,
+            "message": sanitize_string(message),
+            "status": status_code,
+        }
+    ), status_code
 
 
 def validation_error(message: str):
@@ -176,9 +176,7 @@ def validation_error(message: str):
 # ── Composite Validators ─────────────────────────────────────
 
 
-def validate_anomaly_params(
-    limit_raw: Any, severity_raw: str
-) -> Tuple[int, str, Optional[str]]:
+def validate_anomaly_params(limit_raw: Any, severity_raw: str) -> Tuple[int, str, Optional[str]]:
     """
     Validate all parameters for /api/anomalies.
 
@@ -197,9 +195,7 @@ def validate_anomaly_params(
     return limit, severity, None
 
 
-def validate_forecast_params(
-    limit_raw: Any, flagged_raw: str
-) -> Tuple[int, bool, Optional[str]]:
+def validate_forecast_params(limit_raw: Any, flagged_raw: str) -> Tuple[int, bool, Optional[str]]:
     """
     Validate all parameters for /api/forecast.
 

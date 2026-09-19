@@ -1,18 +1,15 @@
 """Tests for integration.ratelimit module — rate limiting and throttling."""
 
-import json
 import time
 
 import pytest
 
 from integration.ratelimit import (
     SlidingWindowCounter,
-    _parse_rate,
     _get_config,
+    _parse_rate,
     get_counter,
-    rate_limit,
 )
-
 
 # ── _parse_rate ──────────────────────────────────────────────
 
@@ -110,6 +107,7 @@ class TestSlidingWindowCounter:
     def test_thread_safety(self):
         """Verify concurrent checks don't crash."""
         import threading
+
         counter = SlidingWindowCounter()
         errors = []
 
@@ -135,8 +133,13 @@ class TestSlidingWindowCounter:
 class TestGetConfig:
     def test_default_config(self, monkeypatch):
         # Clear any existing env vars
-        for key in ["RATE_LIMIT_ENABLED", "RATE_LIMIT_DEFAULT", "RATE_LIMIT_API",
-                     "RATE_LIMIT_PIPELINE", "RATE_LIMIT_DOCS"]:
+        for key in [
+            "RATE_LIMIT_ENABLED",
+            "RATE_LIMIT_DEFAULT",
+            "RATE_LIMIT_API",
+            "RATE_LIMIT_PIPELINE",
+            "RATE_LIMIT_DOCS",
+        ]:
             monkeypatch.delenv(key, raising=False)
 
         config = _get_config()
@@ -187,6 +190,7 @@ class TestRateLimitFlask:
         # but we can test that the mechanism works by making many requests
         # The default is 120/min for API endpoints, so we test the counter directly
         from integration.ratelimit import _counter
+
         _counter._requests.clear()
 
         # Exhaust the limit with a custom key
@@ -210,9 +214,11 @@ class TestRateLimitFlask:
     def test_429_response_format(self):
         """Verify 429 response has correct JSON structure."""
         from integration.app import app
-        with app.test_client() as c:
+
+        with app.test_client():
             with app.test_request_context():
                 from integration.ratelimit import _counter
+
                 # Force a rate limit hit
                 for _ in range(200):
                     _counter.check("429_test", 200, 60)
@@ -254,6 +260,7 @@ class TestRateLimitFlask:
 def client():
     """Create a Flask test client."""
     from integration.app import app
+
     app.config["TESTING"] = True
     # Reset rate limiter state for each test
     get_counter().clear()

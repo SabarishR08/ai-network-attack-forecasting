@@ -4,6 +4,7 @@ Shared configuration for the SIH26153 integrated pipeline.
 Feature flags control which layers are active.
 Adjust ENABLE_FORECASTING_MODEL and ENABLE_KILLCHAIN to toggle layers.
 """
+
 import os
 from pathlib import Path
 
@@ -36,9 +37,9 @@ ENABLE_FORECASTING_MODEL = os.getenv("ENABLE_FORECASTING_MODEL", "1") == "1"
 ENABLE_KILLCHAIN = os.getenv("ENABLE_KILLCHAIN", "1") == "1"
 
 # ── Forecasting Model Config ──────────────────────────────
-WINDOW_SIZE_SECONDS = 30          # sliding window for aggregation
-WINDOW_STEP_SECONDS = 10          # step between windows
-ESCALATION_THRESHOLD = 0.5        # probability above which we flag escalation
+WINDOW_SIZE_SECONDS = 30  # sliding window for aggregation
+WINDOW_STEP_SECONDS = 10  # step between windows
+ESCALATION_THRESHOLD = 0.5  # probability above which we flag escalation
 FORECAST_MODEL_PATH = DATA_DIR / "forecast_model.pkl"
 
 # ── Anomaly Detection Thresholds (inherited from NTAV) ────
@@ -51,6 +52,7 @@ CONNECTION_CYCLING_WINDOW = 5
 
 # ── Kill Chain Config ──────────────────────────────────────
 KILLCHAIN_TIME_WINDOW_MINUTES = 10
+
 
 def ensure_dirs():
     """Create all required output directories."""

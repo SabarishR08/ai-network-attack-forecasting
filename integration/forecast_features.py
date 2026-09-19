@@ -16,7 +16,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -93,10 +93,7 @@ class ForecastFeatureExtractor:
             win_start = first_ts
             while win_start <= last_ts:
                 win_end = win_start + timedelta(seconds=self.window_size)
-                window_pkts = [
-                    p for p in pkts
-                    if win_start <= _parse_ts(p["timestamp"]) < win_end
-                ]
+                window_pkts = [p for p in pkts if win_start <= _parse_ts(p["timestamp"]) < win_end]
 
                 if window_pkts:
                     feat = self._compute_window_features(
@@ -106,7 +103,9 @@ class ForecastFeatureExtractor:
 
                 win_start += timedelta(seconds=self.window_step)
 
-        logger.info(f"Extracted {len(features)} feature vectors across {(len(pairs))} src-dst pairs")
+        logger.info(
+            f"Extracted {len(features)} feature vectors across {(len(pairs))} src-dst pairs"
+        )
         return features
 
     def _compute_window_features(
@@ -223,7 +222,6 @@ def extract_and_label_features(
 
         # Check if this window overlaps with any anomaly
         escalated = 0
-        matching_anomalies = []
         for a_start, a_end in anomaly_windows:
             if win_start <= a_end and win_end >= a_start:
                 escalated = 1
@@ -233,7 +231,9 @@ def extract_and_label_features(
         labeled.append(feat)
 
     escalated_count = sum(1 for f in labeled if f["escalation_label"] == 1)
-    logger.info(f"Labeled {len(labeled)} windows: {escalated_count} escalated, {len(labeled) - escalated_count} normal")
+    logger.info(
+        f"Labeled {len(labeled)} windows: {escalated_count} escalated, {len(labeled) - escalated_count} normal"
+    )
     return labeled
 
 
@@ -242,7 +242,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Extract forecast features from packet data")
     parser.add_argument("--input", "-i", default="data/packets.jsonl", help="Input packets file")
-    parser.add_argument("--output", "-o", default="data/forecast_features.jsonl", help="Output features file")
+    parser.add_argument(
+        "--output", "-o", default="data/forecast_features.jsonl", help="Output features file"
+    )
     parser.add_argument("--window-size", type=int, default=30, help="Window size in seconds")
     parser.add_argument("--window-step", type=int, default=10, help="Window step in seconds")
 
